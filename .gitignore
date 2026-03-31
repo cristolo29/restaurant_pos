@@ -1,0 +1,17 @@
+# Secretos — NUNCA subir al repositorio
+.env
+.env.production
+
+# Python
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+
+# Node
+frontend_react/node_modules/
+frontend_react/dist/
+
+# Sistema
+.DS_Store
