@@ -131,10 +131,21 @@ export default function Comanda() {
   }
 
   const irACobro = () => {
+    const enCocina = itemsEnviados.filter(i => i.estado === 'pendiente' || i.estado === 'en_preparacion')
+    if (enCocina.length > 0) {
+      setModal({
+        titulo: 'Ítems aún en cocina',
+        mensaje: `Hay ${enCocina.length} ítem(s) que aún no están listos. Espera a que cocina los marque como listos antes de cobrar.`,
+        labelConfirm: 'Entendido',
+        colorConfirm: 'warning',
+        onConfirm: () => {},
+      })
+      return
+    }
     if (carrito.length > 0) {
       setModal({
-        titulo: 'Items sin enviar',
-        mensaje: 'Tienes items en el carrito que no fueron enviados a cocina. ¿Continuar al cobro de todas formas?',
+        titulo: 'Ítems sin enviar',
+        mensaje: 'Tienes ítems en el carrito que no fueron enviados a cocina. ¿Continuar al cobro de todas formas?',
         labelConfirm: 'Continuar',
         colorConfirm: 'warning',
         onConfirm: () => navigate('/cobro', { state: { pedido, mesa } }),
