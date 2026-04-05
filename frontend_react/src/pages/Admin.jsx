@@ -264,6 +264,7 @@ export default function Admin() {
   const [form, setForm]     = useState({})
   const [guardando, setGuardando] = useState(false)
   const [busqueda, setBusqueda] = useState('')
+  const [busquedaComp, setBusquedaComp] = useState('')
   const [filtroRol, setFiltroRol] = useState('todos')
 
   const usuario    = useAuth(s => s.usuario)
@@ -463,7 +464,7 @@ export default function Admin() {
         {TABS.map(t => (
           <button
             key={t.id}
-            onClick={() => { setTab(t.id); setBusqueda(''); setFiltroRol('todos') }}
+            onClick={() => { setTab(t.id); setBusqueda(''); setBusquedaComp(''); setFiltroRol('todos') }}
             className={`px-4 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-all
               ${tab === t.id
                 ? 'border-[#f59e0b] text-[#f59e0b]'
@@ -525,7 +526,13 @@ export default function Admin() {
                 )}
               </h2>
               <p className="text-[#71717a] text-sm mt-0.5">
-                {tab === 'comprobantes' ? comprobantes.length : tabActual.filas.length} registro(s)
+                {tab === 'comprobantes'
+                  ? comprobantes.filter(c => {
+                      const q = busquedaComp.toLowerCase().trim()
+                      if (!q) return true
+                      return (c.numero || '').toLowerCase().includes(q) || (c.nro_doc_cliente || '').toLowerCase().includes(q)
+                    }).length
+                  : tabActual.filas.length} registro(s)
               </p>
             </div>
 
@@ -538,6 +545,17 @@ export default function Admin() {
                     onChange={e => setBusqueda(e.target.value)}
                     placeholder="Buscar producto..."
                     className="bg-[#27272a] border border-[#3f3f46] rounded-xl pl-8 pr-4 py-2 text-white text-sm placeholder-[#71717a] focus:outline-none focus:border-[#f59e0b] transition-colors w-48"
+                  />
+                </div>
+              )}
+              {tab === 'comprobantes' && (
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#71717a] text-sm">🔍</span>
+                  <input
+                    value={busquedaComp}
+                    onChange={e => setBusquedaComp(e.target.value)}
+                    placeholder="N° boleta, DNI o RUC..."
+                    className="bg-[#27272a] border border-[#3f3f46] rounded-xl pl-8 pr-4 py-2 text-white text-sm placeholder-[#71717a] focus:outline-none focus:border-[#f59e0b] transition-colors w-56"
                   />
                 </div>
               )}
@@ -573,7 +591,14 @@ export default function Admin() {
 
           {tab === 'comprobantes' ? (
             <TablaComprobantes
-              comprobantes={comprobantes}
+              comprobantes={comprobantes.filter(c => {
+                const q = busquedaComp.toLowerCase().trim()
+                if (!q) return true
+                return (
+                  (c.numero || '').toLowerCase().includes(q) ||
+                  (c.nro_doc_cliente || '').toLowerCase().includes(q)
+                )
+              })}
               expandido={expandido}
               setExpandido={setExpandido}
             />

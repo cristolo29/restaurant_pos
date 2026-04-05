@@ -46,6 +46,38 @@ def actualizar_mesa(
     return mesa
 
 
+@router.put("/{mesa_id}/ocupar", response_model=schemas.MesaResponse)
+def ocupar_mesa(
+    mesa_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_roles("mozo", "cajero", "admin")),
+):
+    mesa = db.query(models.Mesa).filter(models.Mesa.id == mesa_id).first()
+    if not mesa:
+        raise HTTPException(status_code=404, detail="Mesa no encontrada")
+    if mesa.estado != "disponible":
+        raise HTTPException(status_code=400, detail=f"La mesa ya está {mesa.estado}")
+    mesa.estado = "ocupada"
+    db.commit()
+    db.refresh(mesa)
+    return mesa
+
+
+@router.put("/{mesa_id}/liberar", response_model=schemas.MesaResponse)
+def liberar_mesa(
+    mesa_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_roles("mozo", "cajero", "admin")),
+):
+    mesa = db.query(models.Mesa).filter(models.Mesa.id == mesa_id).first()
+    if not mesa:
+        raise HTTPException(status_code=404, detail="Mesa no encontrada")
+    mesa.estado = "disponible"
+    db.commit()
+    db.refresh(mesa)
+    return mesa
+
+
 @router.delete("/{mesa_id}")
 def eliminar_mesa(
     mesa_id: int,

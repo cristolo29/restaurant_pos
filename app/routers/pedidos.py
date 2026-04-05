@@ -18,7 +18,7 @@ def abrir_pedido(pedido: schemas.PedidoCreate, db: Session = Depends(get_db), _=
 
     if not mesa:
         raise HTTPException(status_code=404, detail="La mesa no existe")
-    if mesa.estado != "disponible":
+    if mesa.estado not in ("disponible", "ocupada"):
         raise HTTPException(status_code=400, detail=f"La mesa ya está {mesa.estado}")
 
     # Protección: si quedó un pedido abierto huérfano, lo anula antes de continuar
@@ -36,7 +36,8 @@ def abrir_pedido(pedido: schemas.PedidoCreate, db: Session = Depends(get_db), _=
         tipo       = pedido.tipo,
         estado     = "abierto",
     )
-    mesa.estado = "ocupada"
+    if mesa.estado == "disponible":
+        mesa.estado = "ocupada"
 
     db.add(nuevo_pedido)
     db.commit()

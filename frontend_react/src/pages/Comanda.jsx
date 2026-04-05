@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { getCategorias, getProductos } from '../api/productos'
-import { getPedido, agregarItem, cancelarPedido, cancelarItem } from '../api/pedidos'
+import { getPedido, abrirPedido, agregarItem, cancelarPedido, cancelarItem } from '../api/pedidos'
+import { liberarMesa } from '../api/mesas'
 import useAuth from '../store/useAuth'
 
 export default function Comanda() {
@@ -22,7 +23,7 @@ export default function Comanda() {
   const mesa = state?.mesa
 
   useEffect(() => {
-    if (!state?.pedido) { navigate('/mesas'); return }
+    if (!state?.mesa) { navigate('/mesas'); return }
     Promise.all([getCategorias(), getProductos()]).then(([cats, prods]) => {
       setCategorias(cats)
       setProductos(prods)
@@ -74,16 +75,22 @@ export default function Comanda() {
     })
   }
 
-  // Enviar carrito a cocina
+  // Enviar carrito a cocina — crea el pedido si aún no existe
   const enviarACocina = async () => {
     if (carrito.length === 0) return
     setEnviando(true)
     try {
+      let pedidoActual = pedido
+      if (!pedidoActual) {
+        pedidoActual = await abrirPedido(mesa.id, usuario.id)
+        setPedido(pedidoActual)
+      }
       await Promise.all(
-        carrito.map(i => agregarItem(pedido.id, i.producto_id, i.cantidad, i.nota))
+        carrito.map(i => agregarItem(pedidoActual.id, i.producto_id, i.cantidad, i.nota))
       )
       setCarrito([])
-      await recargarPedido()
+      const data = await getPedido(pedidoActual.id)
+      setPedido(data)
     } finally {
       setEnviando(false)
     }
@@ -97,8 +104,12 @@ export default function Comanda() {
   }
 
   const anular = async () => {
-    if (!confirm('¿Anular el pedido completo y liberar la mesa?')) return
-    await cancelarPedido(pedido.id)
+    if (!confirm('¿Anular y liberar la mesa?')) return
+    if (pedido) {
+      await cancelarPedido(pedido.id)
+    } else {
+      await liberarMesa(mesa.id)
+    }
     navigate('/mesas')
   }
 
@@ -139,7 +150,9 @@ export default function Comanda() {
           <div className="w-px h-5 bg-[#3f3f46]" />
           <div>
             <span className="text-white font-bold">Mesa {mesa?.numero}</span>
-            <span className="text-[#71717a] text-sm ml-2">· Pedido #{pedido?.id}</span>
+            <span className="text-[#71717a] text-sm ml-2">
+              {pedido ? `· Pedido #${pedido.id}` : '· Sin pedido aún'}
+            </span>
           </div>
         </div>
         <div className="flex gap-2">
@@ -152,7 +165,7 @@ export default function Comanda() {
           {puedecobrar && (
             <button
               onClick={irACobro}
-              disabled={itemsEnviados.length === 0 && carrito.length === 0}
+              disabled={!pedido || itemsEnviados.length === 0}
               className="bg-[#f59e0b] text-black px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-[#d97706] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Cobrar →
@@ -322,7 +335,7 @@ export default function Comanda() {
             {puedecobrar ? (
               <button
                 onClick={irACobro}
-                disabled={itemsEnviados.length === 0 && carrito.length === 0}
+                disabled={!pedido || itemsEnviados.length === 0}
                 className="w-full bg-[#f59e0b] text-black py-3 rounded-xl font-bold hover:bg-[#d97706] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Ir a cobrar

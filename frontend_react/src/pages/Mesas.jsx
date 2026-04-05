@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useAuth from '../store/useAuth'
-import { getMesas } from '../api/mesas'
-import { abrirPedido, getPedidoAbierto } from '../api/pedidos'
+import { getMesas, ocuparMesa } from '../api/mesas'
+import { getPedidoAbierto } from '../api/pedidos'
 
 export default function Mesas() {
   const [mesas, setMesas] = useState([])
@@ -32,8 +32,8 @@ export default function Mesas() {
     setMesaActiva(mesa.id)
     try {
       if (mesa.estado === 'disponible') {
-        const pedido = await abrirPedido(mesa.id, usuario.id)
-        navigate('/comanda', { state: { pedido, mesa } })
+        await ocuparMesa(mesa.id)
+        navigate('/comanda', { state: { pedido: null, mesa } })
       } else {
         const pedido = await getPedidoAbierto(mesa.id)
         navigate('/comanda', { state: { pedido, mesa } })

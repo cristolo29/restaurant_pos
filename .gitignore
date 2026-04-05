@@ -1,6 +1,8 @@
 # Secretos — NUNCA subir al repositorio
 .env
 .env.production
+orbezo-deploy_accessKeys.csv
+orbezo-deploy_credentials.csv
 
 # Python
 venv/
