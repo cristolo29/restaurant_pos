@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from app.database import get_db
 from app import models, schemas
 from app.security import get_current_user, require_roles
@@ -72,6 +73,13 @@ def eliminar_producto(
     prod = db.query(models.Producto).filter(models.Producto.id == prod_id).first()
     if not prod:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
-    db.delete(prod)
-    db.commit()
+    try:
+        db.delete(prod)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="No se puede eliminar: el producto tiene pedidos asociados. Desactívalo en su lugar.",
+        )
     return {"mensaje": f"Producto '{prod.nombre}' eliminado"}
