@@ -4,6 +4,7 @@ import { getCategorias, getProductos } from '../api/productos'
 import { getPedido, abrirPedido, agregarItem, cancelarPedido, cancelarItem } from '../api/pedidos'
 import { liberarMesa } from '../api/mesas'
 import useAuth from '../store/useAuth'
+import ModalConfirm from '../components/ModalConfirm'
 
 export default function Comanda() {
   const { state } = useLocation()
@@ -19,6 +20,7 @@ export default function Comanda() {
   const [nota, setNota] = useState('')
   const [productoNota, setProductoNota] = useState(null)
   const [enviando, setEnviando] = useState(false)
+  const [modal, setModal] = useState(null)
 
   const mesa = state?.mesa
 
@@ -98,24 +100,47 @@ export default function Comanda() {
   }
 
   // Cancelar item ya enviado
-  const eliminarItemEnviado = async (item) => {
-    if (!confirm(`¿Quitar "${item.nombre}" del pedido?`)) return
-    await cancelarItem(item.id)
-    await recargarPedido()
+  const eliminarItemEnviado = (item) => {
+    setModal({
+      titulo: '¿Quitar del pedido?',
+      mensaje: `"${item.nombre}" será cancelado.`,
+      labelConfirm: 'Quitar',
+      colorConfirm: 'danger',
+      onConfirm: async () => {
+        await cancelarItem(item.id)
+        await recargarPedido()
+      },
+    })
   }
 
-  const anular = async () => {
-    if (!confirm('¿Anular y liberar la mesa?')) return
-    if (pedido) {
-      await cancelarPedido(pedido.id)
-    } else {
-      await liberarMesa(mesa.id)
-    }
-    navigate('/mesas')
+  const anular = () => {
+    setModal({
+      titulo: '¿Anular pedido?',
+      mensaje: 'Se cancelará el pedido y la mesa quedará disponible.',
+      labelConfirm: 'Anular',
+      colorConfirm: 'danger',
+      onConfirm: async () => {
+        if (pedido) {
+          await cancelarPedido(pedido.id)
+        } else {
+          await liberarMesa(mesa.id)
+        }
+        navigate('/mesas')
+      },
+    })
   }
 
   const irACobro = () => {
-    if (carrito.length > 0 && !confirm('Tienes items sin enviar a cocina. ¿Continuar al cobro de todas formas?')) return
+    if (carrito.length > 0) {
+      setModal({
+        titulo: 'Items sin enviar',
+        mensaje: 'Tienes items en el carrito que no fueron enviados a cocina. ¿Continuar al cobro de todas formas?',
+        labelConfirm: 'Continuar',
+        colorConfirm: 'warning',
+        onConfirm: () => navigate('/cobro', { state: { pedido, mesa } }),
+      })
+      return
+    }
     navigate('/cobro', { state: { pedido, mesa } })
   }
 
@@ -375,6 +400,14 @@ export default function Comanda() {
           </div>
         </div>
       </div>
+
+      {/* Modal confirmación */}
+      {modal && (
+        <ModalConfirm
+          {...modal}
+          onCancel={() => setModal(null)}
+        />
+      )}
 
       {/* Modal nota */}
       {productoNota && (

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useAuth from '../store/useAuth'
+import ModalConfirm from '../components/ModalConfirm'
 import {
   getMesas, crearMesa, actualizarMesa, eliminarMesa,
   getCategorias, crearCategoria, actualizarCategoria, eliminarCategoria,
@@ -261,6 +262,7 @@ export default function Admin() {
   const [roles, setRoles]     = useState([])
   const [salones, setSalones] = useState([])
   const [modal, setModal]   = useState(null)   // { tipo, datos }
+  const [modalConfirm, setModalConfirm] = useState(null)
   const [form, setForm]     = useState({})
   const [guardando, setGuardando] = useState(false)
   const [busqueda, setBusqueda] = useState('')
@@ -329,17 +331,24 @@ export default function Admin() {
     }
   }
 
-  const eliminar = async (raw) => {
-    if (!confirm(`¿Eliminar "${raw.nombre || raw.numero}"?`)) return
-    try {
-      if (tab === 'mesas')      await eliminarMesa(raw.id)
-      if (tab === 'categorias') await eliminarCategoria(raw.id)
-      if (tab === 'productos')  await eliminarProducto(raw.id)
-      if (tab === 'usuarios')   await eliminarUsuario(raw.id)
-      await cargar()
-    } catch (e) {
-      alert(mensajeError(e))
-    }
+  const eliminar = (raw) => {
+    setModalConfirm({
+      titulo: '¿Eliminar registro?',
+      mensaje: `"${raw.nombre || raw.numero}" será eliminado permanentemente.`,
+      labelConfirm: 'Eliminar',
+      colorConfirm: 'danger',
+      onConfirm: async () => {
+        try {
+          if (tab === 'mesas')      await eliminarMesa(raw.id)
+          if (tab === 'categorias') await eliminarCategoria(raw.id)
+          if (tab === 'productos')  await eliminarProducto(raw.id)
+          if (tab === 'usuarios')   await eliminarUsuario(raw.id)
+          await cargar()
+        } catch (e) {
+          alert(mensajeError(e))
+        }
+      },
+    })
   }
 
   // ── Configuración de tabla por tab ────────────────────────────────────────
@@ -613,7 +622,7 @@ export default function Admin() {
         </div>
       </main>
 
-      {/* Modal */}
+      {/* Modal edición */}
       {modal && (
         <Modal
           titulo={`${modal.tipo === 'crear' ? 'Nuevo' : 'Editar'} — ${TABS.find(t => t.id === tab)?.label}`}
@@ -623,6 +632,14 @@ export default function Admin() {
         >
           {renderForm()}
         </Modal>
+      )}
+
+      {/* Modal confirmación eliminar */}
+      {modalConfirm && (
+        <ModalConfirm
+          {...modalConfirm}
+          onCancel={() => setModalConfirm(null)}
+        />
       )}
     </div>
   )
