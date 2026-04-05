@@ -173,6 +173,16 @@ def cerrar_pedido(pedido_id: int, db: Session = Depends(get_db), _=_cajero):
     if pedido.estado == "cerrado":
         raise HTTPException(status_code=400, detail="Este pedido ya fue cerrado")
 
+    items_pendientes = db.query(models.PedidoItem).filter(
+        models.PedidoItem.pedido_id == pedido_id,
+        models.PedidoItem.estado.in_(["pendiente", "en_preparacion"]),
+    ).count()
+    if items_pendientes > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Hay {items_pendientes} ítem(s) aún en cocina. Espera a que estén listos antes de cobrar.",
+        )
+
     mesa  = db.query(models.Mesa).filter(models.Mesa.id == pedido.mesa_id).first()
     items = db.query(models.PedidoItem).filter(models.PedidoItem.pedido_id == pedido_id).all()
 
