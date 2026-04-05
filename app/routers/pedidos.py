@@ -12,6 +12,19 @@ _operador = Depends(require_roles("mozo", "cajero", "admin"))
 _cajero   = Depends(require_roles("cajero", "admin"))
 
 
+def _recalcular_totales(pedido: models.Pedido, db: Session):
+    """Recalcula subtotal, IGV y total del pedido a partir de sus ítems activos."""
+    items = db.query(models.PedidoItem).filter(
+        models.PedidoItem.pedido_id == pedido.id,
+        models.PedidoItem.estado    != "cancelado",
+    ).all()
+    bruto          = sum(float(i.subtotal) for i in items)
+    igv            = round(bruto * 0.18 / 1.18, 2)
+    pedido.subtotal = round(bruto - igv, 2)
+    pedido.igv      = igv
+    pedido.total    = round(bruto, 2)
+
+
 @router.post("", response_model=schemas.PedidoResponse)
 def abrir_pedido(pedido: schemas.PedidoCreate, db: Session = Depends(get_db), _=_operador):
     mesa = db.query(models.Mesa).filter(models.Mesa.id == pedido.mesa_id).first()
@@ -79,6 +92,12 @@ def agregar_item(pedido_id: int, item: schemas.PedidoItemCreate, db: Session = D
         nota       = item.nota,
     )
     db.add(nuevo_item)
+    db.flush()
+
+    pedido = db.query(models.Pedido).filter(models.Pedido.id == pedido_id).first()
+    if pedido:
+        _recalcular_totales(pedido, db)
+
     db.commit()
     db.refresh(nuevo_item)
     return nuevo_item
@@ -97,6 +116,12 @@ def actualizar_estado_item(item_id: int, datos: dict, db: Session = Depends(get_
         raise HTTPException(status_code=404, detail="Item no encontrado")
 
     item.estado = nuevo_estado
+
+    if nuevo_estado == "cancelado":
+        pedido = db.query(models.Pedido).filter(models.Pedido.id == item.pedido_id).first()
+        if pedido:
+            _recalcular_totales(pedido, db)
+
     db.commit()
     return {"id": item.id, "estado": item.estado}
 
