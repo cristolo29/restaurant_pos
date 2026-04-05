@@ -35,7 +35,12 @@ export default function Mesas() {
         await ocuparMesa(mesa.id)
         navigate('/comanda', { state: { pedido: null, mesa } })
       } else {
-        const pedido = await getPedidoAbierto(mesa.id)
+        let pedido = null
+        try {
+          pedido = await getPedidoAbierto(mesa.id)
+        } catch (e) {
+          if (e.response?.status !== 404) throw e
+        }
         navigate('/comanda', { state: { pedido, mesa } })
       }
     } catch (e) {
