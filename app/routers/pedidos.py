@@ -104,8 +104,8 @@ def agregar_item(pedido_id: int, item: schemas.PedidoItemCreate, db: Session = D
 
 
 @router.put("/items/{item_id}/estado")
-def actualizar_estado_item(item_id: int, datos: dict, db: Session = Depends(get_db), _=_cocina):
-    """Usado por la pantalla de cocina para avanzar el estado de un item."""
+def actualizar_estado_item(item_id: int, datos: dict, db: Session = Depends(get_db), _=_operador):
+    """Avanza el estado de un ítem (cocina) o lo cancela (mozo/cajero/admin)."""
     estados_validos = ["pendiente", "en_preparacion", "listo", "entregado", "cancelado"]
     nuevo_estado = datos.get("estado")
     if nuevo_estado not in estados_validos:
