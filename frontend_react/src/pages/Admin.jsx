@@ -313,7 +313,7 @@ export default function Admin() {
         const payload = { salon_id: Number(form.salon_id), numero: form.numero, capacidad: Number(form.capacidad) || 4 }
         modal.tipo === 'crear' ? await crearMesa(payload) : await actualizarMesa(modal.datos.id, payload)
       } else if (tab === 'categorias') {
-        const payload = { nombre: form.nombre }
+        const payload = { nombre: form.nombre, activo: form.activo !== false }
         modal.tipo === 'crear' ? await crearCategoria(payload) : await actualizarCategoria(modal.datos.id, payload)
       } else if (tab === 'productos') {
         const payload = { nombre: form.nombre, precio: Number(form.precio), categoria_id: Number(form.categoria_id), disponible: form.disponible !== false }
@@ -365,8 +365,16 @@ export default function Admin() {
       }))
     },
     categorias: {
-      columnas: ['Nombre'],
-      filas: datos.categorias.map(c => ({ id: c.id, raw: c, celdas: [c.nombre] }))
+      columnas: ['Nombre', 'Estado'],
+      filas: datos.categorias.map(c => ({
+        id: c.id, raw: c,
+        celdas: [
+          c.nombre,
+          <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${c.activo ? 'bg-green-900/40 text-green-400' : 'bg-[#3f3f46] text-[#71717a]'}`}>
+            {c.activo ? 'Activa' : 'Inactiva'}
+          </span>
+        ]
+      }))
     },
     productos: {
       columnas: ['Nombre', 'Precio', 'Categoría', 'Disponible'],
@@ -413,14 +421,20 @@ export default function Admin() {
       </>
     )
     if (tab === 'categorias') return (
-      <Input label="Nombre" value={form.nombre || ''} onChange={f('nombre')} placeholder="Ej: Entradas, Bebidas" />
+      <>
+        <Input label="Nombre" value={form.nombre || ''} onChange={f('nombre')} placeholder="Ej: Entradas, Bebidas" />
+        <Select label="Estado" value={form.activo !== false ? 'true' : 'false'}
+          onChange={e => setForm(p => ({ ...p, activo: e.target.value === 'true' }))}
+          options={[{ value: 'true', label: 'Activa (visible en comanda)' }, { value: 'false', label: 'Inactiva (oculta en comanda)' }]}
+        />
+      </>
     )
     if (tab === 'productos') return (
       <>
         <Input label="Nombre" value={form.nombre || ''} onChange={f('nombre')} placeholder="Nombre del producto" />
         <Input label="Precio (S/)" type="number" value={form.precio || ''} onChange={f('precio')} placeholder="0.00" step="0.10" min={0} />
         <Select label="Categoría" value={form.categoria_id || ''} onChange={f('categoria_id')}
-          options={[{ value: '', label: 'Seleccionar...' }, ...datos.categorias.map(c => ({ value: c.id, label: c.nombre }))]}
+          options={[{ value: '', label: 'Seleccionar...' }, ...datos.categorias.filter(c => c.activo).map(c => ({ value: c.id, label: c.nombre }))]}
         />
         <Select label="Disponible" value={form.disponible !== false ? 'true' : 'false'}
           onChange={e => setForm(p => ({ ...p, disponible: e.target.value === 'true' }))}

@@ -15,6 +15,15 @@ def obtener_categorias(
     return db.query(models.Categoria).filter(models.Categoria.activo == True).all()
 
 
+@router.get("/todas", response_model=list[schemas.CategoriaResponse])
+def obtener_todas(
+    db: Session = Depends(get_db),
+    _=Depends(require_roles("admin")),
+):
+    """Para el panel admin: incluye categorías inactivas."""
+    return db.query(models.Categoria).order_by(models.Categoria.nombre).all()
+
+
 @router.post("", response_model=schemas.CategoriaResponse)
 def crear_categoria(
     categoria: schemas.CategoriaCreate,

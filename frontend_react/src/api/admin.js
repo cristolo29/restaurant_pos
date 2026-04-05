@@ -7,7 +7,7 @@ export const actualizarMesa  = (id, d) => api.put(`/api/mesas/${id}`, d).then(r 
 export const eliminarMesa    = (id) => api.delete(`/api/mesas/${id}`).then(r => r.data)
 
 // Categorías
-export const getCategorias       = () => api.get('/api/categorias').then(r => r.data)
+export const getCategorias       = () => api.get('/api/categorias/todas').then(r => r.data)
 export const crearCategoria      = (d) => api.post('/api/categorias', d).then(r => r.data)
 export const actualizarCategoria = (id, d) => api.put(`/api/categorias/${id}`, d).then(r => r.data)
 export const eliminarCategoria   = (id) => api.delete(`/api/categorias/${id}`).then(r => r.data)
