@@ -104,12 +104,26 @@ def agregar_item(pedido_id: int, item: schemas.PedidoItemCreate, db: Session = D
 
 
 @router.put("/items/{item_id}/estado")
-def actualizar_estado_item(item_id: int, datos: dict, db: Session = Depends(get_db), _=_operador):
-    """Avanza el estado de un ítem (cocina) o lo cancela (mozo/cajero/admin)."""
+def actualizar_estado_item(
+    item_id: int,
+    datos: dict,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user),
+):
+    """
+    Avanza el estado de un ítem (todos los roles) o lo cancela (solo mozo/cajero/admin).
+    El cocinero solo puede avanzar estados, no cancelar.
+    """
     estados_validos = ["pendiente", "en_preparacion", "listo", "entregado", "cancelado"]
     nuevo_estado = datos.get("estado")
     if nuevo_estado not in estados_validos:
         raise HTTPException(status_code=400, detail=f"Estado inválido: {nuevo_estado}")
+
+    rol = current_user.rol.nombre
+    if nuevo_estado == "cancelado" and rol not in ("mozo", "cajero", "admin"):
+        raise HTTPException(status_code=403, detail="Solo mozo, cajero o admin pueden cancelar ítems")
+    if nuevo_estado != "cancelado" and rol not in ("cocinero", "mozo", "cajero", "admin"):
+        raise HTTPException(status_code=403, detail="No tienes permiso para cambiar este estado")
 
     item = db.query(models.PedidoItem).filter(models.PedidoItem.id == item_id).first()
     if not item:
