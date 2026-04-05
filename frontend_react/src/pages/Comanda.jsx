@@ -37,7 +37,8 @@ export default function Comanda() {
   }
 
   // Agregar al carrito local
-  const agregarAlCarrito = (producto, notaTexto = '') => {
+  const agregarAlCarrito = (producto, notaTexto = '', cambiarTab = true) => {
+    if (cambiarTab) setTabActivo('pedido')
     setCarrito(prev => {
       const existe = prev.find(i => i.producto_id === producto.id && i.nota === notaTexto)
       if (existe) {
@@ -118,11 +119,14 @@ export default function Comanda() {
     navigate('/cobro', { state: { pedido, mesa } })
   }
 
+  const [tabActivo, setTabActivo] = useState('carta') // 'carta' | 'pedido'
+
   const productosFiltrados = productos.filter(p => p.categoria_id === categoriaActiva)
   const itemsEnviados = pedido?.items?.filter(i => i.estado !== 'cancelado') || []
   const totalCarrito = carrito.reduce((s, i) => s + i.subtotal, 0)
   const totalEnviado = itemsEnviados.reduce((s, i) => s + i.subtotal, 0)
   const totalGeneral = totalCarrito + totalEnviado
+  const totalItems   = carrito.length + itemsEnviados.length
 
   const estadoBadge = (estado) => {
     const map = {
@@ -174,10 +178,34 @@ export default function Comanda() {
         </div>
       </header>
 
+      {/* Tabs — solo visible en móvil */}
+      <div className="md:hidden flex border-b border-[#3f3f46] bg-[#27272a]">
+        <button
+          onClick={() => setTabActivo('carta')}
+          className={`flex-1 py-3 text-sm font-semibold transition-colors
+            ${tabActivo === 'carta' ? 'text-[#f59e0b] border-b-2 border-[#f59e0b]' : 'text-[#71717a]'}`}
+        >
+          Carta
+        </button>
+        <button
+          onClick={() => setTabActivo('pedido')}
+          className={`flex-1 py-3 text-sm font-semibold transition-colors relative
+            ${tabActivo === 'pedido' ? 'text-[#f59e0b] border-b-2 border-[#f59e0b]' : 'text-[#71717a]'}`}
+        >
+          Pedido
+          {totalItems > 0 && (
+            <span className="ml-1.5 bg-[#f59e0b] text-black text-xs font-bold px-1.5 py-0.5 rounded-full">
+              {totalItems}
+            </span>
+          )}
+        </button>
+      </div>
+
       <div className="flex flex-1 overflow-hidden" style={{ height: 'calc(100vh - 65px)' }}>
 
         {/* Panel izquierdo — Carta */}
-        <div className="flex flex-col flex-1 overflow-hidden border-r border-[#3f3f46]">
+        <div className={`flex-col flex-1 overflow-hidden border-r border-[#3f3f46]
+          ${tabActivo === 'carta' ? 'flex' : 'hidden'} md:flex`}>
 
           {/* Categorías */}
           <div className="flex gap-2 px-4 py-3 border-b border-[#3f3f46] overflow-x-auto shrink-0">
@@ -201,7 +229,7 @@ export default function Comanda() {
             {productosFiltrados.map(prod => (
               <div key={prod.id} className="bg-[#27272a] border border-[#3f3f46] rounded-xl overflow-hidden hover:border-[#52525b] transition-colors">
                 <button
-                  onClick={() => agregarAlCarrito(prod)}
+                  onClick={() => agregarAlCarrito(prod, '', true)}
                   className="w-full p-4 text-left hover:bg-[#3f3f46] transition-colors"
                 >
                   <p className="text-white font-medium text-sm leading-tight mb-1">{prod.nombre}</p>
@@ -219,7 +247,8 @@ export default function Comanda() {
         </div>
 
         {/* Panel derecho — Pedido */}
-        <div className="w-80 flex flex-col bg-[#1f1f22] shrink-0">
+        <div className={`flex-col bg-[#1f1f22] shrink-0 w-full md:w-80
+          ${tabActivo === 'pedido' ? 'flex' : 'hidden'} md:flex`}>
 
           <div className="px-4 py-3 border-b border-[#3f3f46]">
             <p className="text-white font-semibold">Pedido actual</p>
@@ -249,7 +278,7 @@ export default function Comanda() {
                           </button>
                           <span className="text-white text-sm w-5 text-center">{item.cantidad}</span>
                           <button
-                            onClick={() => agregarAlCarrito({ id: item.producto_id, nombre: item.nombre, precio: item.precio }, item.nota)}
+                            onClick={() => agregarAlCarrito({ id: item.producto_id, nombre: item.nombre, precio: item.precio }, item.nota, false)}
                             className="w-6 h-6 rounded-md bg-[#3f3f46] text-[#a1a1aa] hover:bg-[#f59e0b]/20 hover:text-[#f59e0b] text-xs transition-colors flex items-center justify-center"
                           >
                             +
@@ -369,7 +398,7 @@ export default function Comanda() {
                 Cancelar
               </button>
               <button
-                onClick={() => agregarAlCarrito(productoNota, nota)}
+                onClick={() => agregarAlCarrito(productoNota, nota, true)}
                 className="flex-1 bg-[#f59e0b] text-black py-2.5 rounded-xl text-sm font-semibold hover:bg-[#d97706] transition-colors"
               >
                 Agregar
