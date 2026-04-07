@@ -81,9 +81,11 @@ def emitir_comprobante(datos: schemas.ComprobanteCreate, db: Session = Depends(g
         models.PedidoItem.estado    != "cancelado",
     ).all()
 
-    bruto    = sum(float(i.subtotal) for i in items_pedido)
-    igv      = bruto * 0.18 / 1.18
-    subtotal = bruto - igv
+    total_gravado  = sum(float(i.subtotal) for i in items_pedido if i.producto and i.producto.afecto_igv)
+    total_inafecto = sum(float(i.subtotal) for i in items_pedido if not i.producto or not i.producto.afecto_igv)
+    igv      = total_gravado * 0.18 / 1.18
+    subtotal = (total_gravado - igv) + total_inafecto
+    bruto    = total_gravado + total_inafecto
 
     tipo_doc = "6" if datos.tipo == "factura" else "1"
     comprobante = models.Comprobante(
@@ -120,10 +122,11 @@ def emitir_comprobante(datos: schemas.ComprobanteCreate, db: Session = Depends(g
                 "cantidad":    float(item.cantidad),
                 "precio_unit": float(item.precio_unit),
                 "subtotal":    float(item.subtotal),
+                "afecto_igv":  item.producto.afecto_igv if item.producto else True,
             }
 
     for g in grupos.values():
-        igv_item = g["subtotal"] * 0.18 / 1.18
+        igv_item = (g["subtotal"] * 0.18 / 1.18) if g["afecto_igv"] else 0.0
         db.add(models.ComprobanteItem(
             comprobante_id = comprobante.id,
             descripcion    = g["descripcion"],

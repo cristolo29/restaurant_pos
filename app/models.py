@@ -24,7 +24,6 @@ class Usuario(Base):
     rol_id = Column(Integer, ForeignKey("orbezo.rol.id"), nullable=False)
     nombre = Column(String(100), nullable=False)
     email = Column(String(150), unique=True, nullable=False, index=True)
-    password_hash = Column(String(255), nullable=False)
     pin = Column(String(6))
     activo = Column(Boolean, nullable=False, default=True)
 

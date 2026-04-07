@@ -30,12 +30,11 @@ def crear_usuario(datos: schemas.UsuarioCreate, db: Session = Depends(get_db), _
         if pin_en_uso:
             raise HTTPException(status_code=400, detail=f"El PIN ya está asignado a '{pin_en_uso.nombre}'")
     nuevo = models.Usuario(
-        rol_id        = datos.rol_id,
-        nombre        = datos.nombre,
-        email         = datos.email,
-        password_hash = "sin_password",
-        pin           = datos.pin,
-        activo        = datos.activo,
+        rol_id = datos.rol_id,
+        nombre = datos.nombre,
+        email  = datos.email,
+        pin    = datos.pin,
+        activo = datos.activo,
     )
     db.add(nuevo)
     db.commit()

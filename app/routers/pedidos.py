@@ -13,16 +13,23 @@ _cajero   = Depends(require_roles("cajero", "admin"))
 
 
 def _recalcular_totales(pedido: models.Pedido, db: Session):
-    """Recalcula subtotal, IGV y total del pedido a partir de sus ítems activos."""
+    """Recalcula subtotal, IGV y total del pedido a partir de sus ítems activos.
+
+    Productos con afecto_igv=True  → precio incluye IGV (se descompone).
+    Productos con afecto_igv=False → precio sin IGV (no aporta IGV).
+    """
     items = db.query(models.PedidoItem).filter(
         models.PedidoItem.pedido_id == pedido.id,
         models.PedidoItem.estado    != "cancelado",
     ).all()
-    bruto          = sum(float(i.subtotal) for i in items)
-    igv            = round(bruto * 0.18 / 1.18, 2)
-    pedido.subtotal = round(bruto - igv, 2)
+
+    total_gravado   = sum(float(i.subtotal) for i in items if i.producto and i.producto.afecto_igv)
+    total_inafecto  = sum(float(i.subtotal) for i in items if not i.producto or not i.producto.afecto_igv)
+
+    igv             = round(total_gravado * 0.18 / 1.18, 2)
+    pedido.subtotal = round((total_gravado - igv) + total_inafecto, 2)
     pedido.igv      = igv
-    pedido.total    = round(bruto, 2)
+    pedido.total    = round(total_gravado + total_inafecto, 2)
 
 
 @router.post("", response_model=schemas.PedidoResponse)
