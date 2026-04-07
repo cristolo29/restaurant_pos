@@ -125,25 +125,40 @@ export default function TicketBoleta({ comprobante, mesa, metodo, vuelto, montoP
         <hr className="dashed" />
 
         {/* ── ITEMS ── */}
-        <table>
-          <thead>
-            <tr>
-              <td className="cant b">Cant</td>
-              <td className="b">Descripción</td>
-              <td className="precio b">Precio</td>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td colSpan={3}><hr className="dashed" /></td></tr>
-            {comprobante.items.map((item, i) => (
-              <tr key={i}>
-                <td className="cant">{Number(item.cantidad).toFixed(0)}</td>
-                <td>{item.descripcion}</td>
-                <td className="precio">S/{Number(item.subtotal).toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {(() => {
+          const agrupados = Object.values(
+            (comprobante.items || []).reduce((acc, item) => {
+              if (acc[item.descripcion]) {
+                acc[item.descripcion].cantidad += Number(item.cantidad)
+                acc[item.descripcion].subtotal += Number(item.subtotal)
+              } else {
+                acc[item.descripcion] = { ...item, cantidad: Number(item.cantidad), subtotal: Number(item.subtotal) }
+              }
+              return acc
+            }, {})
+          )
+          return (
+            <table>
+              <thead>
+                <tr>
+                  <td className="cant b">Cant</td>
+                  <td className="b">Descripción</td>
+                  <td className="precio b">Precio</td>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td colSpan={3}><hr className="dashed" /></td></tr>
+                {agrupados.map((item, i) => (
+                  <tr key={i}>
+                    <td className="cant">{Number(item.cantidad).toFixed(0)}</td>
+                    <td>{item.descripcion}</td>
+                    <td className="precio">S/{Number(item.subtotal).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
+        })()}
         <hr className="dashed" />
 
         {/* ── TOTALES ── */}
