@@ -4,6 +4,7 @@ import useAuth from '../store/useAuth'
 import { cerrarPedido } from '../api/pedidos'
 import { emitirComprobante } from '../api/comprobantes'
 import TicketBoleta from '../components/TicketBoleta'
+import ModalConfirm from '../components/ModalConfirm'
 
 const METODOS = [
   { id: 'efectivo', label: 'Efectivo', icon: '💵' },
@@ -28,6 +29,7 @@ export default function Cobro() {
   const [montoPagado, setMontoPagado] = useState('')
   const [procesando, setProcesando] = useState(false)
   const [comprobante, setComprobante] = useState(null)
+  const [modal, setModal] = useState(null)
 
   if (!pedido) { navigate('/mesas'); return null }
 
@@ -51,7 +53,13 @@ export default function Cobro() {
 
   const cobrar = async () => {
     if (tipoComp === 'factura' && !ruc.trim()) {
-      alert('La factura requiere RUC del cliente')
+      setModal({
+        titulo: 'RUC requerido',
+        mensaje: 'La factura requiere el RUC del cliente.',
+        labelConfirm: 'Entendido',
+        colorConfirm: 'warning',
+        onConfirm: () => {},
+      })
       return
     }
     setProcesando(true)
@@ -72,7 +80,13 @@ export default function Cobro() {
       })
       setComprobante(comp)
     } catch (e) {
-      alert(e.response?.data?.detail || 'Error al procesar cobro')
+      setModal({
+        titulo: 'Error al procesar cobro',
+        mensaje: e.response?.data?.detail || 'Ocurrió un error inesperado.',
+        labelConfirm: 'Entendido',
+        colorConfirm: 'danger',
+        onConfirm: () => {},
+      })
       setProcesando(false)
     }
   }
@@ -130,6 +144,7 @@ export default function Cobro() {
           vuelto={vuelto}
           montoPagado={montoPagado}
         />
+        {modal && <ModalConfirm {...modal} onCancel={() => setModal(null)} />}
       </div>
     )
   }
@@ -329,6 +344,8 @@ export default function Cobro() {
           {procesando ? 'Procesando...' : `Cobrar S/ ${bruto.toFixed(2)}`}
         </button>
       </div>
+
+      {modal && <ModalConfirm {...modal} onCancel={() => setModal(null)} />}
     </div>
   )
 }

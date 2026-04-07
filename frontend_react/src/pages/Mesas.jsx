@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import useAuth from '../store/useAuth'
 import { getMesas, ocuparMesa } from '../api/mesas'
 import { getPedidoAbierto } from '../api/pedidos'
+import ModalConfirm from '../components/ModalConfirm'
 
 export default function Mesas() {
   const [mesas, setMesas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [mesaActiva, setMesaActiva] = useState(null)
+  const [modal, setModal] = useState(null)
   const usuario = useAuth(s => s.usuario)
   const cerrarSesion = useAuth(s => s.cerrarSesion)
   const navigate = useNavigate()
@@ -44,7 +46,13 @@ export default function Mesas() {
         navigate('/comanda', { state: { pedido, mesa } })
       }
     } catch (e) {
-      alert(e.response?.data?.detail || 'Error al abrir mesa')
+      setModal({
+        titulo: 'Error al abrir mesa',
+        mensaje: e.response?.data?.detail || 'Ocurrió un error inesperado.',
+        labelConfirm: 'Entendido',
+        colorConfirm: 'danger',
+        onConfirm: () => {},
+      })
     } finally {
       setMesaActiva(null)
     }
@@ -154,6 +162,8 @@ export default function Mesas() {
           </div>
         )}
       </main>
+
+      {modal && <ModalConfirm {...modal} onCancel={() => setModal(null)} />}
     </div>
   )
 }

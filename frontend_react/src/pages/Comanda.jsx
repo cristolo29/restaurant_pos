@@ -16,6 +16,7 @@ export default function Comanda() {
   const [productos, setProductos] = useState([])
   const [pedido, setPedido] = useState(state?.pedido || null)
   const [categoriaActiva, setCategoriaActiva] = useState(null)
+  const [busqueda, setBusqueda] = useState('')
   const [carrito, setCarrito] = useState([])        // items pendientes de enviar
   const [nota, setNota] = useState('')
   const [productoNota, setProductoNota] = useState(null)
@@ -37,6 +38,18 @@ export default function Comanda() {
     const data = await getPedido(pedido.id)
     setPedido(data)
   }
+
+  // Auto-refresh del pedido cada 15 segundos para ver cambios de cocina
+  useEffect(() => {
+    if (!pedido?.id) return
+    const intervalo = setInterval(async () => {
+      try {
+        const data = await getPedido(pedido.id)
+        setPedido(data)
+      } catch { /* pedido cerrado o error de red, ignorar silenciosamente */ }
+    }, 15000)
+    return () => clearInterval(intervalo)
+  }, [pedido?.id])
 
   // Agregar al carrito local
   const agregarAlCarrito = (producto, notaTexto = '', cambiarTab = true) => {
@@ -157,7 +170,9 @@ export default function Comanda() {
 
   const [tabActivo, setTabActivo] = useState('carta') // 'carta' | 'pedido'
 
-  const productosFiltrados = productos.filter(p => p.categoria_id === categoriaActiva)
+  const productosFiltrados = busqueda.trim()
+    ? productos.filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase()))
+    : productos.filter(p => p.categoria_id === categoriaActiva)
   const itemsEnviados = pedido?.items?.filter(i => i.estado !== 'cancelado') || []
   const totalCarrito = carrito.reduce((s, i) => s + i.subtotal, 0)
   const totalEnviado = itemsEnviados.reduce((s, i) => s + i.subtotal, 0)
@@ -243,25 +258,45 @@ export default function Comanda() {
         <div className={`flex-col flex-1 overflow-hidden border-r border-[#3f3f46]
           ${tabActivo === 'carta' ? 'flex' : 'hidden'} md:flex`}>
 
-          {/* Categorías */}
-          <div className="flex gap-2 px-4 py-3 border-b border-[#3f3f46] overflow-x-auto shrink-0">
-            {categorias.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => setCategoriaActiva(cat.id)}
-                className={`px-4 py-1.5 rounded-full text-sm whitespace-nowrap transition-all font-medium
-                  ${categoriaActiva === cat.id
-                    ? 'bg-[#f59e0b] text-black'
-                    : 'bg-[#3f3f46] text-[#a1a1aa] hover:text-white'
-                  }`}
-              >
-                {cat.nombre}
-              </button>
-            ))}
+          {/* Búsqueda */}
+          <div className="px-4 pt-3 pb-2 shrink-0">
+            <input
+              type="text"
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+              placeholder="Buscar producto..."
+              className="w-full bg-[#3f3f46] border border-[#52525b] rounded-xl px-4 py-2 text-white text-sm placeholder-[#71717a] focus:outline-none focus:border-[#f59e0b] transition-colors"
+            />
           </div>
+
+          {/* Categorías — se ocultan si hay búsqueda activa */}
+          {!busqueda.trim() && (
+            <div className="flex gap-2 px-4 py-2 border-b border-[#3f3f46] overflow-x-auto shrink-0">
+              {categorias.map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => setCategoriaActiva(cat.id)}
+                  className={`px-4 py-1.5 rounded-full text-sm whitespace-nowrap transition-all font-medium
+                    ${categoriaActiva === cat.id
+                      ? 'bg-[#f59e0b] text-black'
+                      : 'bg-[#3f3f46] text-[#a1a1aa] hover:text-white'
+                    }`}
+                >
+                  {cat.nombre}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Productos */}
           <div className="flex-1 overflow-y-auto p-4 grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3 content-start">
+            {productosFiltrados.length === 0 && (
+              <div className="col-span-full flex items-center justify-center py-16">
+                <p className="text-[#52525b] text-sm text-center">
+                  {busqueda.trim() ? `Sin resultados para "${busqueda}"` : 'Sin productos en esta categoría'}
+                </p>
+              </div>
+            )}
             {productosFiltrados.map(prod => (
               <div key={prod.id} className="bg-[#27272a] border border-[#3f3f46] rounded-xl overflow-hidden hover:border-[#52525b] transition-colors">
                 <button
