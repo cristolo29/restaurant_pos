@@ -61,6 +61,13 @@ export default function Mesas() {
   const disponibles = mesas.filter(m => m.estado === 'disponible').length
   const ocupadas = mesas.filter(m => m.estado === 'ocupada').length
 
+  const tiempoTranscurrido = (isoString) => {
+    if (!isoString) return null
+    const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 60000)
+    if (diff < 60) return `${diff}m`
+    return `${Math.floor(diff / 60)}h ${diff % 60}m`
+  }
+
   const iniciales = usuario?.nombre
     ?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?'
 
@@ -153,7 +160,20 @@ export default function Mesas() {
                         ${libre ? 'text-[#22c55e]' : 'text-[#f59e0b]'}`}>
                         {libre ? 'Disponible' : 'Ocupada'}
                       </div>
-                      <div className="text-xs text-[#52525b]">{mesa.capacidad} personas</div>
+                      {!libre && mesa.pedido_inicio ? (
+                        <>
+                          <div className="text-xs text-[#f59e0b] font-medium">
+                            {tiempoTranscurrido(mesa.pedido_inicio)}
+                          </div>
+                          {mesa.pedido_total > 0 && (
+                            <div className="text-xs text-[#a1a1aa] mt-0.5">
+                              S/ {Number(mesa.pedido_total).toFixed(2)}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-xs text-[#52525b]">{mesa.capacidad} personas</div>
+                      )}
                     </>
                   )}
                 </button>

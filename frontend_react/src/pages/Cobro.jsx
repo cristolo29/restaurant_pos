@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import useAuth from '../store/useAuth'
 import { cerrarPedido } from '../api/pedidos'
 import { emitirComprobante } from '../api/comprobantes'
 import TicketBoleta from '../components/TicketBoleta'
@@ -16,8 +15,6 @@ const METODOS = [
 export default function Cobro() {
   const { state } = useLocation()
   const navigate = useNavigate()
-  const usuario = useAuth(s => s.usuario)
-
   const pedido = state?.pedido
   const mesa   = state?.mesa
 
@@ -51,23 +48,10 @@ export default function Cobro() {
   const pagado   = parseFloat(montoPagado) || 0
   const vuelto   = pagado > bruto ? pagado - bruto : 0
 
-  const cobrar = async () => {
-    if (tipoComp === 'factura' && !ruc.trim()) {
-      setModal({
-        titulo: 'RUC requerido',
-        mensaje: 'La factura requiere el RUC del cliente.',
-        labelConfirm: 'Entendido',
-        colorConfirm: 'warning',
-        onConfirm: () => {},
-      })
-      return
-    }
+  const ejecutarCobro = async () => {
     setProcesando(true)
     try {
-      // 1. Cerrar pedido
       await cerrarPedido(pedido.id)
-
-      // 2. Emitir comprobante
       const comp = await emitirComprobante({
         pedido_id:         pedido.id,
         tipo:              tipoComp,
@@ -89,6 +73,32 @@ export default function Cobro() {
       })
       setProcesando(false)
     }
+  }
+
+  const cobrar = async () => {
+    if (tipoComp === 'factura' && !ruc.trim()) {
+      setModal({
+        titulo: 'RUC requerido',
+        mensaje: 'La factura requiere el RUC del cliente.',
+        labelConfirm: 'Entendido',
+        colorConfirm: 'warning',
+        onConfirm: () => {},
+      })
+      return
+    }
+    // Confirmación para métodos digitales (no hay monto ingresado manualmente)
+    if (metodo !== 'efectivo') {
+      const LABEL = { tarjeta: 'Tarjeta', yape: 'Yape', plin: 'Plin' }
+      setModal({
+        titulo: `Confirmar cobro con ${LABEL[metodo]}`,
+        mensaje: `¿Confirmas el cobro de S/ ${bruto.toFixed(2)} con ${LABEL[metodo]}?`,
+        labelConfirm: 'Sí, cobrar',
+        colorConfirm: 'primary',
+        onConfirm: ejecutarCobro,
+      })
+      return
+    }
+    await ejecutarCobro()
   }
 
   // Pantalla de éxito
@@ -341,7 +351,15 @@ export default function Cobro() {
           disabled={procesando || items.length === 0 || (metodo === 'efectivo' && montoPagado && pagado < bruto)}
           className="w-full bg-[#f59e0b] text-black py-4 rounded-2xl text-lg font-bold hover:bg-[#d97706] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#f59e0b]/20"
         >
-          {procesando ? 'Procesando...' : `Cobrar S/ ${bruto.toFixed(2)}`}
+          {procesando ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+              Procesando...
+            </span>
+          ) : `Cobrar S/ ${bruto.toFixed(2)}`}
         </button>
       </div>
 

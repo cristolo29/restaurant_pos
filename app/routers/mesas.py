@@ -12,7 +12,24 @@ def obtener_mesas(
     db: Session = Depends(get_db),
     _=Depends(get_current_user),
 ):
-    return db.query(models.Mesa).order_by(models.Mesa.numero).all()
+    mesas = db.query(models.Mesa).order_by(models.Mesa.numero).all()
+    pedidos_abiertos = {
+        p.mesa_id: p
+        for p in db.query(models.Pedido).filter(models.Pedido.estado == "abierto").all()
+    }
+    resultado = []
+    for mesa in mesas:
+        pedido = pedidos_abiertos.get(mesa.id)
+        resultado.append(schemas.MesaResponse(
+            id           = mesa.id,
+            salon_id     = mesa.salon_id,
+            numero       = mesa.numero,
+            capacidad    = mesa.capacidad,
+            estado       = mesa.estado,
+            pedido_total = float(pedido.total) if pedido else None,
+            pedido_inicio = pedido.created_at.isoformat() if pedido and pedido.created_at else None,
+        ))
+    return resultado
 
 
 @router.post("", response_model=schemas.MesaResponse)

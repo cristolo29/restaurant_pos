@@ -45,6 +45,8 @@ class MesaCreate(BaseModel):
 class MesaResponse(MesaCreate):
     id: int
     estado: str
+    pedido_total: Optional[float] = None
+    pedido_inicio: Optional[str] = None
 
     class Config:
         from_attributes = True
