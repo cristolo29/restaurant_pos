@@ -8,20 +8,21 @@ import ModalConfirm from '../components/ModalConfirm'
 
 export default function Comanda() {
   const { state } = useLocation()
-  const navigate = useNavigate()
-  const usuario = useAuth(s => s.usuario)
+  const navigate  = useNavigate()
+  const usuario   = useAuth(s => s.usuario)
   const puedecobrar = usuario?.rol_nombre !== 'mozo'
 
-  const [categorias, setCategorias] = useState([])
-  const [productos, setProductos] = useState([])
-  const [pedido, setPedido] = useState(state?.pedido || null)
+  const [categorias, setCategorias]       = useState([])
+  const [productos, setProductos]         = useState([])
+  const [pedido, setPedido]               = useState(state?.pedido || null)
   const [categoriaActiva, setCategoriaActiva] = useState(null)
-  const [busqueda, setBusqueda] = useState('')
-  const [carrito, setCarrito] = useState([])        // items pendientes de enviar
-  const [nota, setNota] = useState('')
-  const [productoNota, setProductoNota] = useState(null)
-  const [enviando, setEnviando] = useState(false)
-  const [modal, setModal] = useState(null)
+  const [busqueda, setBusqueda]           = useState('')
+  const [carrito, setCarrito]             = useState([])
+  const [nota, setNota]                   = useState('')
+  const [productoNota, setProductoNota]   = useState(null)
+  const [enviando, setEnviando]           = useState(false)
+  const [modal, setModal]                 = useState(null)
+  const [tabActivo, setTabActivo]         = useState('carta')
 
   const mesa = state?.mesa
 
@@ -39,19 +40,17 @@ export default function Comanda() {
     setPedido(data)
   }
 
-  // Auto-refresh del pedido cada 15 segundos para ver cambios de cocina
   useEffect(() => {
     if (!pedido?.id) return
     const intervalo = setInterval(async () => {
       try {
         const data = await getPedido(pedido.id)
         setPedido(data)
-      } catch { /* pedido cerrado o error de red, ignorar silenciosamente */ }
+      } catch { /* ignorar silenciosamente */ }
     }, 15000)
     return () => clearInterval(intervalo)
   }, [pedido?.id])
 
-  // Agregar al carrito local
   const agregarAlCarrito = (producto, notaTexto = '', cambiarTab = true) => {
     if (cambiarTab) setTabActivo('pedido')
     setCarrito(prev => {
@@ -66,11 +65,11 @@ export default function Comanda() {
       return [...prev, {
         _key: Date.now(),
         producto_id: producto.id,
-        nombre: producto.nombre,
-        precio: Number(producto.precio),
-        cantidad: 1,
-        subtotal: Number(producto.precio),
-        nota: notaTexto,
+        nombre:      producto.nombre,
+        precio:      Number(producto.precio),
+        cantidad:    1,
+        subtotal:    Number(producto.precio),
+        nota:        notaTexto,
       }]
     })
     setProductoNota(null)
@@ -91,7 +90,6 @@ export default function Comanda() {
     })
   }
 
-  // Enviar carrito a cocina — crea el pedido si aún no existe
   const enviarACocina = async () => {
     if (carrito.length === 0) return
     setEnviando(true)
@@ -112,7 +110,6 @@ export default function Comanda() {
     }
   }
 
-  // Cancelar item ya enviado
   const eliminarItemEnviado = (item) => {
     setModal({
       titulo: '¿Quitar del pedido?',
@@ -133,11 +130,8 @@ export default function Comanda() {
       labelConfirm: 'Anular',
       colorConfirm: 'danger',
       onConfirm: async () => {
-        if (pedido) {
-          await cancelarPedido(pedido.id)
-        } else {
-          await liberarMesa(mesa.id)
-        }
+        if (pedido) await cancelarPedido(pedido.id)
+        else        await liberarMesa(mesa.id)
         navigate('/mesas')
       },
     })
@@ -168,24 +162,18 @@ export default function Comanda() {
     navigate('/cobro', { state: { pedido, mesa } })
   }
 
-  const [tabActivo, setTabActivo] = useState('carta') // 'carta' | 'pedido'
-
   const productosFiltrados = busqueda.trim()
     ? productos.filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase()))
     : productos.filter(p => p.categoria_id === categoriaActiva)
+
   const itemsEnviados = pedido?.items?.filter(i => i.estado !== 'cancelado') || []
-  const totalCarrito = carrito.reduce((s, i) => s + i.subtotal, 0)
-  const totalEnviado = itemsEnviados.reduce((s, i) => s + i.subtotal, 0)
-  const totalGeneral = totalCarrito + totalEnviado
-  const totalItems   = carrito.length + itemsEnviados.length
+  const totalCarrito  = carrito.reduce((s, i) => s + i.subtotal, 0)
+  const totalEnviado  = itemsEnviados.reduce((s, i) => s + Number(i.subtotal), 0)
+  const totalGeneral  = totalCarrito + totalEnviado
+  const totalItems    = carrito.length + itemsEnviados.length
 
   const estadoBadge = (estado) => {
-    const map = {
-      pendiente:       'bg-[#3f3f46] text-[#a1a1aa]',
-      en_preparacion:  'bg-amber-900/40 text-amber-400',
-      listo:           'bg-green-900/40 text-green-400',
-      entregado:       'bg-blue-900/40 text-blue-400',
-    }
+    const map    = { pendiente: 'bg-[#3f3f46] text-[#a1a1aa]', en_preparacion: 'bg-amber-900/40 text-amber-400', listo: 'bg-green-900/40 text-green-400', entregado: 'bg-blue-900/40 text-blue-400' }
     const labels = { pendiente: 'Pendiente', en_preparacion: 'En cocina', listo: '✓ Listo', entregado: 'Entregado' }
     return { cls: map[estado] || map.pendiente, label: labels[estado] || estado }
   }
@@ -193,27 +181,30 @@ export default function Comanda() {
   return (
     <div className="min-h-screen bg-[#18181b] text-white flex flex-col">
 
-      {/* Header */}
-      <header className="bg-[#27272a] px-6 py-4 flex justify-between items-center border-b border-[#3f3f46] sticky top-0 z-10">
-        <div className="flex items-center gap-3">
+      {/* Header — compacto en móvil */}
+      <header className="bg-[#27272a] px-3 sm:px-6 py-3 sm:py-4 flex justify-between items-center border-b border-[#3f3f46] sticky top-0 z-10 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={() => navigate('/mesas')}
-            className="text-[#71717a] hover:text-white transition-colors p-1 rounded-lg hover:bg-[#3f3f46]"
+            className="text-[#71717a] hover:text-white transition-colors p-1.5 rounded-lg hover:bg-[#3f3f46] shrink-0"
           >
-            ← Mesas
+            ←
           </button>
-          <div className="w-px h-5 bg-[#3f3f46]" />
-          <div>
-            <span className="text-white font-bold">Mesa {mesa?.numero}</span>
-            <span className="text-[#71717a] text-sm ml-2">
-              {pedido ? `· Pedido #${pedido.id}` : '· Sin pedido aún'}
-            </span>
+          <div className="w-px h-4 bg-[#3f3f46] shrink-0" />
+          <div className="min-w-0">
+            <p className="text-white font-bold text-sm sm:text-base leading-tight truncate">
+              Mesa {mesa?.numero}
+            </p>
+            <p className="text-[#71717a] text-xs leading-tight truncate">
+              {pedido ? `Pedido #${pedido.id}` : 'Sin pedido aún'}
+            </p>
           </div>
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex gap-1.5 sm:gap-2 shrink-0">
           <button
             onClick={anular}
-            className="border border-[#ef4444]/40 text-[#ef4444] px-3 py-1.5 rounded-lg text-sm hover:bg-[#ef4444]/10 transition-colors"
+            className="border border-[#ef4444]/40 text-[#ef4444] px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm hover:bg-[#ef4444]/10 transition-colors"
           >
             Anular
           </button>
@@ -221,7 +212,7 @@ export default function Comanda() {
             <button
               onClick={irACobro}
               disabled={!pedido || itemsEnviados.length === 0}
-              className="bg-[#f59e0b] text-black px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-[#d97706] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="bg-[#f59e0b] text-black px-2.5 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold hover:bg-[#d97706] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Cobrar →
             </button>
@@ -229,7 +220,7 @@ export default function Comanda() {
         </div>
       </header>
 
-      {/* Tabs — solo visible en móvil */}
+      {/* Tabs móvil */}
       <div className="md:hidden flex border-b border-[#3f3f46] bg-[#27272a]">
         <button
           onClick={() => setTabActivo('carta')}
@@ -252,31 +243,32 @@ export default function Comanda() {
         </button>
       </div>
 
-      <div className="flex flex-1 overflow-hidden" style={{ height: 'calc(100vh - 65px)' }}>
+      {/* Contenido principal — altura dinámica */}
+      <div className="flex flex-1 overflow-hidden">
 
         {/* Panel izquierdo — Carta */}
         <div className={`flex-col flex-1 overflow-hidden border-r border-[#3f3f46]
           ${tabActivo === 'carta' ? 'flex' : 'hidden'} md:flex`}>
 
           {/* Búsqueda */}
-          <div className="px-4 pt-3 pb-2 shrink-0">
+          <div className="px-3 sm:px-4 pt-3 pb-2 shrink-0">
             <input
               type="text"
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
               placeholder="Buscar producto..."
-              className="w-full bg-[#3f3f46] border border-[#52525b] rounded-xl px-4 py-2 text-white text-sm placeholder-[#71717a] focus:outline-none focus:border-[#f59e0b] transition-colors"
+              className="w-full bg-[#3f3f46] border border-[#52525b] rounded-xl px-4 py-2.5 text-white text-sm placeholder-[#71717a] focus:outline-none focus:border-[#f59e0b] transition-colors"
             />
           </div>
 
-          {/* Categorías — se ocultan si hay búsqueda activa */}
+          {/* Categorías */}
           {!busqueda.trim() && (
-            <div className="flex gap-2 px-4 py-2 border-b border-[#3f3f46] overflow-x-auto shrink-0">
+            <div className="flex gap-2 px-3 sm:px-4 py-2 border-b border-[#3f3f46] overflow-x-auto shrink-0">
               {categorias.map(cat => (
                 <button
                   key={cat.id}
                   onClick={() => setCategoriaActiva(cat.id)}
-                  className={`px-4 py-1.5 rounded-full text-sm whitespace-nowrap transition-all font-medium
+                  className={`px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm whitespace-nowrap transition-all font-medium
                     ${categoriaActiva === cat.id
                       ? 'bg-[#f59e0b] text-black'
                       : 'bg-[#3f3f46] text-[#a1a1aa] hover:text-white'
@@ -288,8 +280,8 @@ export default function Comanda() {
             </div>
           )}
 
-          {/* Productos */}
-          <div className="flex-1 overflow-y-auto p-4 grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3 content-start">
+          {/* Grid de productos */}
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2 sm:gap-3 content-start">
             {productosFiltrados.length === 0 && (
               <div className="col-span-full flex items-center justify-center py-16">
                 <p className="text-[#52525b] text-sm text-center">
@@ -301,14 +293,14 @@ export default function Comanda() {
               <div key={prod.id} className="bg-[#27272a] border border-[#3f3f46] rounded-xl overflow-hidden hover:border-[#52525b] transition-colors">
                 <button
                   onClick={() => agregarAlCarrito(prod, '', true)}
-                  className="w-full p-4 text-left hover:bg-[#3f3f46] transition-colors"
+                  className="w-full p-3 sm:p-4 text-left hover:bg-[#3f3f46] transition-colors active:bg-[#3f3f46]"
                 >
-                  <p className="text-white font-medium text-sm leading-tight mb-1">{prod.nombre}</p>
-                  <p className="text-[#f59e0b] font-bold text-base">S/ {Number(prod.precio).toFixed(2)}</p>
+                  <p className="text-white font-medium text-sm leading-tight mb-1 line-clamp-2">{prod.nombre}</p>
+                  <p className="text-[#f59e0b] font-bold text-sm sm:text-base">S/ {Number(prod.precio).toFixed(2)}</p>
                 </button>
                 <button
                   onClick={() => setProductoNota(prod)}
-                  className="w-full px-4 py-1.5 text-xs text-[#71717a] hover:text-[#a1a1aa] border-t border-[#3f3f46] transition-colors text-left"
+                  className="w-full px-3 py-2 text-xs text-[#71717a] hover:text-[#a1a1aa] border-t border-[#3f3f46] transition-colors text-left active:bg-[#3f3f46]"
                 >
                   📝 Con nota
                 </button>
@@ -322,13 +314,13 @@ export default function Comanda() {
           ${tabActivo === 'pedido' ? 'flex' : 'hidden'} md:flex`}>
 
           <div className="px-4 py-3 border-b border-[#3f3f46]">
-            <p className="text-white font-semibold">Pedido actual</p>
+            <p className="text-white font-semibold text-sm sm:text-base">Pedido actual</p>
             <p className="text-[#71717a] text-xs">{itemsEnviados.length} enviado(s) · {carrito.length} en carrito</p>
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
 
-            {/* Carrito local — pendiente de enviar */}
+            {/* Carrito local */}
             {carrito.length > 0 && (
               <div>
                 <p className="text-[#71717a] text-xs uppercase tracking-wider mb-2 px-1">Por enviar</p>
@@ -340,39 +332,39 @@ export default function Comanda() {
                           <p className="text-white text-sm font-medium truncate">{item.nombre}</p>
                           {item.nota && <p className="text-[#f59e0b] text-xs mt-0.5 truncate">📝 {item.nota}</p>}
                         </div>
+                        {/* Controles cantidad — mínimo 44px touch target */}
                         <div className="flex items-center gap-1 shrink-0">
                           <button
                             onClick={() => quitarDelCarrito(item._key)}
-                            className="w-6 h-6 rounded-md bg-[#3f3f46] text-[#a1a1aa] hover:bg-[#ef4444]/20 hover:text-[#ef4444] text-xs transition-colors flex items-center justify-center"
+                            className="w-8 h-8 rounded-lg bg-[#3f3f46] text-[#a1a1aa] hover:bg-[#ef4444]/20 hover:text-[#ef4444] text-sm transition-colors flex items-center justify-center font-bold"
                           >
                             −
                           </button>
-                          <span className="text-white text-sm w-5 text-center">{item.cantidad}</span>
+                          <span className="text-white text-sm w-6 text-center font-semibold">{item.cantidad}</span>
                           <button
                             onClick={() => agregarAlCarrito({ id: item.producto_id, nombre: item.nombre, precio: item.precio }, item.nota, false)}
-                            className="w-6 h-6 rounded-md bg-[#3f3f46] text-[#a1a1aa] hover:bg-[#f59e0b]/20 hover:text-[#f59e0b] text-xs transition-colors flex items-center justify-center"
+                            className="w-8 h-8 rounded-lg bg-[#3f3f46] text-[#a1a1aa] hover:bg-[#f59e0b]/20 hover:text-[#f59e0b] text-sm transition-colors flex items-center justify-center font-bold"
                           >
                             +
                           </button>
                         </div>
                       </div>
-                      <p className="text-[#a1a1aa] text-xs mt-1">S/ {item.subtotal.toFixed(2)}</p>
+                      <p className="text-[#a1a1aa] text-xs mt-1.5">S/ {item.subtotal.toFixed(2)}</p>
                     </div>
                   ))}
                 </div>
 
-                {/* Botón enviar a cocina */}
                 <button
                   onClick={enviarACocina}
                   disabled={enviando}
-                  className="w-full mt-3 bg-[#f59e0b] text-black py-2.5 rounded-xl text-sm font-bold hover:bg-[#d97706] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full mt-3 bg-[#f59e0b] text-black py-3 rounded-xl text-sm font-bold hover:bg-[#d97706] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {enviando ? 'Enviando...' : '🍳 Enviar a cocina'}
                 </button>
               </div>
             )}
 
-            {/* Items ya enviados */}
+            {/* Items enviados */}
             {itemsEnviados.length > 0 && (
               <div>
                 <p className="text-[#71717a] text-xs uppercase tracking-wider mb-2 px-1">En cocina / entregados</p>
@@ -387,10 +379,11 @@ export default function Comanda() {
                             {item.nota && <p className="text-[#f59e0b] text-xs mt-0.5 truncate">📝 {item.nota}</p>}
                             <p className="text-[#71717a] text-xs mt-1">{item.cantidad}x · S/ {Number(item.subtotal).toFixed(2)}</p>
                           </div>
-                          <div className="flex flex-col items-end gap-1.5 shrink-0">
+                          <div className="flex flex-col items-end gap-2 shrink-0">
+                            {/* Botón eliminar — touch target adecuado */}
                             <button
                               onClick={() => eliminarItemEnviado(item)}
-                              className="text-[#52525b] hover:text-[#ef4444] transition-colors text-xs px-1"
+                              className="w-7 h-7 rounded-lg bg-[#3f3f46]/50 hover:bg-[#ef4444]/20 text-[#52525b] hover:text-[#ef4444] transition-colors flex items-center justify-center text-xs"
                               title="Quitar del pedido"
                             >
                               ✕
@@ -409,12 +402,12 @@ export default function Comanda() {
 
             {carrito.length === 0 && itemsEnviados.length === 0 && (
               <div className="flex-1 flex items-center justify-center py-16">
-                <p className="text-[#3f3f46] text-sm text-center">Sin items.<br/>Selecciona productos de la carta.</p>
+                <p className="text-[#3f3f46] text-sm text-center">Sin ítems.<br/>Selecciona productos de la carta.</p>
               </div>
             )}
           </div>
 
-          {/* Total */}
+          {/* Total y cobrar */}
           <div className="border-t border-[#3f3f46] p-4">
             {carrito.length > 0 && (
               <div className="flex justify-between text-xs text-[#71717a] mb-1">
@@ -436,7 +429,7 @@ export default function Comanda() {
               <button
                 onClick={irACobro}
                 disabled={!pedido || itemsEnviados.length === 0}
-                className="w-full bg-[#f59e0b] text-black py-3 rounded-xl font-bold hover:bg-[#d97706] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full bg-[#f59e0b] text-black py-3.5 rounded-xl font-bold hover:bg-[#d97706] transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-sm sm:text-base"
               >
                 Ir a cobrar
               </button>
@@ -447,19 +440,19 @@ export default function Comanda() {
         </div>
       </div>
 
-      {/* Modal confirmación */}
-      {modal && (
-        <ModalConfirm
-          {...modal}
-          onCancel={() => setModal(null)}
-        />
-      )}
+      {modal && <ModalConfirm {...modal} onCancel={() => setModal(null)} />}
 
-      {/* Modal nota */}
+      {/* Modal nota — alineado abajo en móvil para evitar teclado virtual */}
       {productoNota && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
-          <div className="bg-[#27272a] border border-[#3f3f46] rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <h3 className="text-white font-semibold mb-1">{productoNota.nombre}</h3>
+        <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50">
+          <div className="bg-[#27272a] border border-[#3f3f46] rounded-t-2xl sm:rounded-2xl p-5 w-full sm:max-w-sm shadow-2xl">
+            <div className="flex justify-between items-start mb-1">
+              <h3 className="text-white font-semibold text-base">{productoNota.nombre}</h3>
+              <button
+                onClick={() => { setProductoNota(null); setNota('') }}
+                className="text-[#71717a] hover:text-white text-xl leading-none ml-3 shrink-0"
+              >×</button>
+            </div>
             <p className="text-[#71717a] text-sm mb-4">Agrega una nota para cocina (opcional)</p>
             <textarea
               value={nota}
@@ -472,13 +465,13 @@ export default function Comanda() {
             <div className="flex gap-2 mt-4">
               <button
                 onClick={() => { setProductoNota(null); setNota('') }}
-                className="flex-1 bg-[#3f3f46] text-[#a1a1aa] py-2.5 rounded-xl text-sm hover:bg-[#52525b] transition-colors"
+                className="flex-1 bg-[#3f3f46] text-[#a1a1aa] py-3 rounded-xl text-sm hover:bg-[#52525b] transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={() => agregarAlCarrito(productoNota, nota, true)}
-                className="flex-1 bg-[#f59e0b] text-black py-2.5 rounded-xl text-sm font-semibold hover:bg-[#d97706] transition-colors"
+                className="flex-1 bg-[#f59e0b] text-black py-3 rounded-xl text-sm font-semibold hover:bg-[#d97706] transition-colors"
               >
                 Agregar
               </button>
