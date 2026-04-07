@@ -107,14 +107,29 @@ def emitir_comprobante(datos: schemas.ComprobanteCreate, db: Session = Depends(g
     db.add(comprobante)
     db.flush()
 
+    # Agrupar por producto antes de guardar en ComprobanteItem
+    grupos: dict = {}
     for item in items_pedido:
-        igv_item = float(item.subtotal) * 0.18 / 1.18
+        pid = item.producto_id
+        if pid in grupos:
+            grupos[pid]["cantidad"] += float(item.cantidad)
+            grupos[pid]["subtotal"] += float(item.subtotal)
+        else:
+            grupos[pid] = {
+                "descripcion": item.producto.nombre if item.producto else "Producto",
+                "cantidad":    float(item.cantidad),
+                "precio_unit": float(item.precio_unit),
+                "subtotal":    float(item.subtotal),
+            }
+
+    for g in grupos.values():
+        igv_item = g["subtotal"] * 0.18 / 1.18
         db.add(models.ComprobanteItem(
             comprobante_id = comprobante.id,
-            descripcion    = item.producto.nombre if item.producto else "Producto",
-            cantidad       = float(item.cantidad),
-            precio_unit    = float(item.precio_unit),
-            subtotal       = float(item.subtotal),
+            descripcion    = g["descripcion"],
+            cantidad       = g["cantidad"],
+            precio_unit    = g["precio_unit"],
+            subtotal       = round(g["subtotal"], 2),
             igv_item       = round(igv_item, 2),
         ))
 

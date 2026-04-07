@@ -31,10 +31,9 @@ export default function Cobro() {
 
   if (!pedido) { navigate('/mesas'); return null }
 
-  const itemsRaw = pedido.items?.filter(i => i.estado !== 'cancelado') || []
-  // Agrupar por producto para que la boleta no muestre líneas duplicadas
+  const items = pedido.items?.filter(i => i.estado !== 'cancelado') || []
   const itemsAgrupados = Object.values(
-    itemsRaw.reduce((acc, item) => {
+    items.reduce((acc, item) => {
       if (acc[item.producto_id]) {
         acc[item.producto_id].cantidad += item.cantidad
         acc[item.producto_id].subtotal += Number(item.subtotal)
@@ -44,7 +43,6 @@ export default function Cobro() {
       return acc
     }, {})
   )
-  const items = itemsRaw
   const bruto    = items.reduce((s, i) => s + Number(i.subtotal), 0)
   const igv      = bruto * 0.18 / 1.18
   const subtotal = bruto - igv
