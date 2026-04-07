@@ -266,7 +266,10 @@ export default function Cobro() {
             />
 
             {pagado > 0 && pagado < bruto && (
-              <p className="text-red-400 text-xs mt-2 px-1">El monto es menor al total</p>
+              <div className="mt-2 bg-red-900/20 border border-red-500/30 rounded-xl px-4 py-2.5 flex justify-between items-center">
+                <span className="text-red-400 text-sm">Faltan</span>
+                <span className="text-red-400 text-lg font-bold">S/ {(bruto - pagado).toFixed(2)}</span>
+              </div>
             )}
 
             {vuelto > 0 && (
