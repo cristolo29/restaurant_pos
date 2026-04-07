@@ -29,7 +29,6 @@ const TooltipPersonalizado = ({ active, payload, label }) => {
 
 export default function Dashboard() {
   const navigate   = useNavigate()
-  const usuario    = useAuth(s => s.usuario)
   const cerrarSesion = useAuth(s => s.cerrarSesion)
   const [data, setData]       = useState(null)
   const [cargando, setCargando] = useState(true)
