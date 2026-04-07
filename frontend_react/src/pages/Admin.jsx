@@ -745,14 +745,40 @@ export default function Admin() {
                 <input
                   type="date"
                   value={fechaInicio}
-                  onChange={e => setFechaInicio(e.target.value)}
+                  onChange={e => {
+                    const val = e.target.value
+                    if (fechaFin && val && val > fechaFin) {
+                      setModalConfirm({
+                        titulo: 'Rango de fechas inválido',
+                        mensaje: 'La fecha "Desde" no puede ser posterior a la fecha "Hasta".',
+                        labelConfirm: 'Entendido',
+                        colorConfirm: 'danger',
+                        onConfirm: () => {},
+                      })
+                      return
+                    }
+                    setFechaInicio(val)
+                  }}
                   className="flex-1 min-w-0 bg-[#27272a] border border-[#3f3f46] rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-[#f59e0b] transition-colors"
                 />
                 <span className="text-[#52525b] text-sm shrink-0">→</span>
                 <input
                   type="date"
                   value={fechaFin}
-                  onChange={e => setFechaFin(e.target.value)}
+                  onChange={e => {
+                    const val = e.target.value
+                    if (fechaInicio && val && val < fechaInicio) {
+                      setModalConfirm({
+                        titulo: 'Rango de fechas inválido',
+                        mensaje: 'La fecha "Hasta" no puede ser anterior a la fecha "Desde".',
+                        labelConfirm: 'Entendido',
+                        colorConfirm: 'danger',
+                        onConfirm: () => {},
+                      })
+                      return
+                    }
+                    setFechaFin(val)
+                  }}
                   className="flex-1 min-w-0 bg-[#27272a] border border-[#3f3f46] rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-[#f59e0b] transition-colors"
                 />
                 {(fechaInicio || fechaFin) && (
