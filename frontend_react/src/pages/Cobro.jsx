@@ -31,7 +31,20 @@ export default function Cobro() {
 
   if (!pedido) { navigate('/mesas'); return null }
 
-  const items = pedido.items?.filter(i => i.estado !== 'cancelado') || []
+  const itemsRaw = pedido.items?.filter(i => i.estado !== 'cancelado') || []
+  // Agrupar por producto para que la boleta no muestre líneas duplicadas
+  const itemsAgrupados = Object.values(
+    itemsRaw.reduce((acc, item) => {
+      if (acc[item.producto_id]) {
+        acc[item.producto_id].cantidad += item.cantidad
+        acc[item.producto_id].subtotal += Number(item.subtotal)
+      } else {
+        acc[item.producto_id] = { ...item, subtotal: Number(item.subtotal) }
+      }
+      return acc
+    }, {})
+  )
+  const items = itemsRaw
   const bruto    = items.reduce((s, i) => s + Number(i.subtotal), 0)
   const igv      = bruto * 0.18 / 1.18
   const subtotal = bruto - igv
@@ -148,8 +161,8 @@ export default function Cobro() {
             <p className="text-white font-semibold">Resumen del pedido</p>
           </div>
           <div className="divide-y divide-[#3f3f46]">
-            {items.map(item => (
-              <div key={item.id} className="px-5 py-3 flex justify-between items-center">
+            {itemsAgrupados.map(item => (
+              <div key={item.producto_id} className="px-5 py-3 flex justify-between items-center">
                 <div>
                   <p className="text-white text-sm">{item.nombre}</p>
                   {item.nota && <p className="text-[#71717a] text-xs">📝 {item.nota}</p>}

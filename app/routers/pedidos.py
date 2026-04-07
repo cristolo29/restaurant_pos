@@ -83,13 +83,31 @@ def agregar_item(pedido_id: int, item: schemas.PedidoItemCreate, db: Session = D
     if not producto:
         raise HTTPException(status_code=404, detail="El producto no existe en la carta")
 
+    # Si ya hay un ítem pendiente del mismo producto, sumar cantidad
+    existente = db.query(models.PedidoItem).filter(
+        models.PedidoItem.pedido_id   == pedido_id,
+        models.PedidoItem.producto_id == item.producto_id,
+        models.PedidoItem.estado      == "pendiente",
+    ).first()
+
+    if existente:
+        existente.cantidad += item.cantidad
+        existente.subtotal  = float(existente.precio_unit) * existente.cantidad
+        db.flush()
+        pedido = db.query(models.Pedido).filter(models.Pedido.id == pedido_id).first()
+        if pedido:
+            _recalcular_totales(pedido, db)
+        db.commit()
+        db.refresh(existente)
+        return existente
+
     nuevo_item = models.PedidoItem(
-        pedido_id  = pedido_id,
+        pedido_id   = pedido_id,
         producto_id = item.producto_id,
-        cantidad   = item.cantidad,
+        cantidad    = item.cantidad,
         precio_unit = producto.precio,
-        subtotal   = float(producto.precio) * item.cantidad,
-        nota       = item.nota,
+        subtotal    = float(producto.precio) * item.cantidad,
+        nota        = item.nota,
     )
     db.add(nuevo_item)
     db.flush()
