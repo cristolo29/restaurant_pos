@@ -120,7 +120,7 @@ function Select({ label, options, ...props }) {
 }
 
 // ── Tabla comprobantes ────────────────────────────────────────────────────────
-function TablaComprobantes({ comprobantes, expandido, setExpandido }) {
+function TablaComprobantes({ comprobantes, expandido, setExpandido, onVerDetalle }) {
   if (comprobantes.length === 0) {
     return (
       <div className="bg-[#27272a] border border-[#3f3f46] rounded-2xl px-4 py-10 text-center text-[#52525b] text-sm">
@@ -172,8 +172,17 @@ function TablaComprobantes({ comprobantes, expandido, setExpandido }) {
                       : <span className="text-[#3f3f46]">—</span>
                     }
                   </td>
-                  <td className="px-3 py-3 text-white font-semibold text-right whitespace-nowrap">
-                    S/ {Number(c.total).toFixed(2)}
+                  <td className="px-3 py-3 text-right whitespace-nowrap">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={e => { e.stopPropagation(); onVerDetalle(c) }}
+                        className="sm:hidden w-8 h-8 flex items-center justify-center rounded-lg bg-[#3f3f46] text-[#a1a1aa] active:bg-[#52525b] text-sm shrink-0"
+                        title="Ver detalle"
+                      >
+                        👁
+                      </button>
+                      <span className="text-white font-semibold">S/ {Number(c.total).toFixed(2)}</span>
+                    </div>
                   </td>
                 </tr>
 
@@ -250,6 +259,110 @@ function TablaComprobantes({ comprobantes, expandido, setExpandido }) {
   )
 }
 
+// ── Modal detalle comprobante (móvil) ─────────────────────────────────────────
+function ModalDetalleComprobante({ c, onCerrar }) {
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50">
+      <div className="bg-[#27272a] border border-[#3f3f46] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl max-h-[88vh] overflow-y-auto">
+
+        {/* Header sticky */}
+        <div className="flex justify-between items-center px-5 py-4 border-b border-[#3f3f46] sticky top-0 bg-[#27272a] z-10">
+          <div>
+            <p className="text-[#f59e0b] font-bold text-base">{c.numero}</p>
+            <p className="text-[#71717a] text-xs">{c.created_at || '—'}</p>
+          </div>
+          <button onClick={onCerrar} className="text-[#71717a] hover:text-white text-2xl leading-none w-9 h-9 flex items-center justify-center rounded-xl hover:bg-[#3f3f46] transition-colors">×</button>
+        </div>
+
+        <div className="px-5 py-4 flex flex-col gap-5">
+
+          {/* Tipo + método */}
+          <div className="flex gap-2 flex-wrap">
+            <span className={`text-xs px-2.5 py-1 rounded-lg font-medium border ${c.tipo === 'factura' ? 'bg-[#a78bfa]/10 text-[#a78bfa] border-[#a78bfa]/20' : 'bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20'}`}>
+              {c.tipo === 'factura' ? 'Factura' : 'Boleta'}
+            </span>
+            <span className="text-xs px-2.5 py-1 rounded-lg font-medium bg-[#3f3f46] text-[#a1a1aa] border border-[#52525b]/30 capitalize">
+              {METODO_LABEL[c.metodo_pago] || c.metodo_pago || '—'}
+            </span>
+          </div>
+
+          {/* Productos */}
+          <div>
+            <p className="text-[#71717a] text-xs uppercase tracking-wider mb-2">Productos</p>
+            <div className="bg-[#1f1f22] rounded-xl overflow-hidden">
+              {c.items.map((item, i) => (
+                <div key={i} className={`flex justify-between items-center px-4 py-2.5 text-sm ${i > 0 ? 'border-t border-[#3f3f46]' : ''}`}>
+                  <span className="text-[#a1a1aa]">{Number(item.cantidad).toFixed(0)}× {item.descripcion}</span>
+                  <span className="text-white font-medium ml-4 shrink-0">S/ {Number(item.subtotal).toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Totales */}
+          <div>
+            <p className="text-[#71717a] text-xs uppercase tracking-wider mb-2">Resumen de pago</p>
+            <div className="bg-[#1f1f22] rounded-xl px-4 py-3 flex flex-col gap-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-[#71717a]">Subtotal (sin IGV)</span>
+                <span className="text-[#a1a1aa]">S/ {Number(c.subtotal).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#71717a]">IGV 18%</span>
+                <span className="text-[#a1a1aa]">S/ {Number(c.igv).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between border-t border-[#3f3f46] pt-2 mt-0.5">
+                <span className="text-white font-semibold">Total</span>
+                <span className="text-[#f59e0b] font-bold text-base">S/ {Number(c.total).toFixed(2)}</span>
+              </div>
+              {c.metodo_pago === 'efectivo' && Number(c.monto_pagado) > 0 && (
+                <>
+                  <div className="flex justify-between border-t border-[#3f3f46] pt-2">
+                    <span className="text-[#71717a]">Efectivo recibido</span>
+                    <span className="text-[#a1a1aa]">S/ {Number(c.monto_pagado).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#71717a]">Vuelto</span>
+                    <span className="text-[#22c55e] font-medium">S/ {Number(c.vuelto).toFixed(2)}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Cliente */}
+          {(c.nro_doc_cliente || c.razon_social || c.direccion_cliente) && (
+            <div>
+              <p className="text-[#71717a] text-xs uppercase tracking-wider mb-2">Cliente</p>
+              <div className="bg-[#1f1f22] rounded-xl px-4 py-3 flex flex-col gap-2 text-sm">
+                {c.nro_doc_cliente && (
+                  <div className="flex justify-between">
+                    <span className="text-[#71717a]">{c.tipo === 'factura' ? 'RUC' : 'DNI'}</span>
+                    <span className="text-[#a1a1aa]">{c.nro_doc_cliente}</span>
+                  </div>
+                )}
+                {c.razon_social && (
+                  <div className="flex justify-between gap-4">
+                    <span className="text-[#71717a] shrink-0">{c.tipo === 'factura' ? 'Razón social' : 'Nombre'}</span>
+                    <span className="text-[#a1a1aa] text-right">{c.razon_social}</span>
+                  </div>
+                )}
+                {c.direccion_cliente && (
+                  <div className="flex justify-between gap-4">
+                    <span className="text-[#71717a] shrink-0">Dirección</span>
+                    <span className="text-[#a1a1aa] text-right">{c.direccion_cliente}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 export default function Admin() {
   const [tab, setTab]       = useState('mesas')
@@ -265,6 +378,9 @@ export default function Admin() {
   const [busqueda, setBusqueda] = useState('')
   const [busquedaComp, setBusquedaComp] = useState('')
   const [filtroRol, setFiltroRol] = useState('todos')
+  const [fechaInicio, setFechaInicio] = useState('')
+  const [fechaFin, setFechaFin] = useState('')
+  const [comprobanteDetalle, setComprobanteDetalle] = useState(null)
 
   const usuario    = useAuth(s => s.usuario)
   const cerrarSesion = useAuth(s => s.cerrarSesion)
@@ -419,6 +535,22 @@ export default function Admin() {
 
   const tabActual = config[tab]
 
+  // ── Comprobantes filtrados (búsqueda + rango de fechas) ──────────────────────
+  const comprobantesFiltrados = comprobantes.filter(c => {
+    const q = busquedaComp.toLowerCase().trim()
+    if (q && !(c.numero || '').toLowerCase().includes(q) && !(c.nro_doc_cliente || '').toLowerCase().includes(q)) return false
+    if (fechaInicio || fechaFin) {
+      const partes = (c.created_at || '').split(' ')[0].split('/')
+      if (partes.length === 3) {
+        const fechaComp = `${partes[2]}-${partes[1]}-${partes[0]}`
+        if (fechaInicio && fechaComp < fechaInicio) return false
+        if (fechaFin   && fechaComp > fechaFin)   return false
+      }
+    }
+    return true
+  })
+  const totalRango = comprobantesFiltrados.reduce((s, c) => s + Number(c.total), 0)
+
   const renderForm = () => {
     if (tab === 'mesas') return (
       <>
@@ -496,7 +628,7 @@ export default function Admin() {
         {TABS.map(t => (
           <button
             key={t.id}
-            onClick={() => { setTab(t.id); setBusqueda(''); setBusquedaComp(''); setFiltroRol('todos') }}
+            onClick={() => { setTab(t.id); setBusqueda(''); setBusquedaComp(''); setFiltroRol('todos'); setFechaInicio(''); setFechaFin('') }}
             className={`flex items-center gap-1.5 px-3 sm:px-4 py-3.5 text-xs sm:text-sm font-medium whitespace-nowrap border-b-2 transition-all
               ${tab === t.id
                 ? 'border-[#f59e0b] text-[#f59e0b]'
@@ -552,13 +684,7 @@ export default function Admin() {
                 )}
               </h2>
               <p className="text-[#71717a] text-sm mt-0.5">
-                {tab === 'comprobantes'
-                  ? comprobantes.filter(c => {
-                      const q = busquedaComp.toLowerCase().trim()
-                      if (!q) return true
-                      return (c.numero || '').toLowerCase().includes(q) || (c.nro_doc_cliente || '').toLowerCase().includes(q)
-                    }).length
-                  : tabActual?.filas.length} registro(s)
+                {tab === 'comprobantes' ? comprobantesFiltrados.length : tabActual?.filas.length} registro(s)
               </p>
             </div>
 
@@ -613,15 +739,50 @@ export default function Admin() {
           )}
 
           {tab === 'comprobantes' ? (
-            <TablaComprobantes
-              comprobantes={comprobantes.filter(c => {
-                const q = busquedaComp.toLowerCase().trim()
-                if (!q) return true
-                return (c.numero || '').toLowerCase().includes(q) || (c.nro_doc_cliente || '').toLowerCase().includes(q)
-              })}
-              expandido={expandido}
-              setExpandido={setExpandido}
-            />
+            <>
+              {/* Filtro por rango de fechas */}
+              <div className="flex flex-wrap gap-2 items-center mb-3">
+                <input
+                  type="date"
+                  value={fechaInicio}
+                  onChange={e => setFechaInicio(e.target.value)}
+                  className="flex-1 min-w-0 bg-[#27272a] border border-[#3f3f46] rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-[#f59e0b] transition-colors"
+                />
+                <span className="text-[#52525b] text-sm shrink-0">→</span>
+                <input
+                  type="date"
+                  value={fechaFin}
+                  onChange={e => setFechaFin(e.target.value)}
+                  className="flex-1 min-w-0 bg-[#27272a] border border-[#3f3f46] rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-[#f59e0b] transition-colors"
+                />
+                {(fechaInicio || fechaFin) && (
+                  <button
+                    onClick={() => { setFechaInicio(''); setFechaFin('') }}
+                    className="text-xs text-[#71717a] hover:text-white px-3 py-2 rounded-xl border border-[#3f3f46] hover:border-[#52525b] transition-all whitespace-nowrap shrink-0"
+                  >
+                    Limpiar
+                  </button>
+                )}
+              </div>
+
+              {/* Total del rango — visible solo cuando hay filtro activo */}
+              {(fechaInicio || fechaFin || busquedaComp.trim()) && (
+                <div className="bg-[#27272a] border border-[#f59e0b]/20 rounded-xl px-4 py-3 flex justify-between items-center mb-3">
+                  <span className="text-[#71717a] text-sm">{comprobantesFiltrados.length} resultado(s)</span>
+                  <div className="text-right">
+                    <p className="text-[#71717a] text-xs">Total del rango</p>
+                    <p className="text-[#f59e0b] font-bold text-base">S/ {totalRango.toFixed(2)}</p>
+                  </div>
+                </div>
+              )}
+
+              <TablaComprobantes
+                comprobantes={comprobantesFiltrados}
+                expandido={expandido}
+                setExpandido={setExpandido}
+                onVerDetalle={setComprobanteDetalle}
+              />
+            </>
           ) : tabActual && (
             <TablaAdmin
               columnas={tabActual.columnas}
@@ -651,6 +812,14 @@ export default function Admin() {
         <ModalConfirm
           {...modalConfirm}
           onCancel={() => setModalConfirm(null)}
+        />
+      )}
+
+      {/* Modal detalle comprobante */}
+      {comprobanteDetalle && (
+        <ModalDetalleComprobante
+          c={comprobanteDetalle}
+          onCerrar={() => setComprobanteDetalle(null)}
         />
       )}
     </div>
