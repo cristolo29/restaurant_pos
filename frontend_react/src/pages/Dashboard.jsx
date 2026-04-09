@@ -54,25 +54,25 @@ export default function Dashboard() {
     <div className="min-h-screen bg-[#18181b] text-white flex flex-col">
 
       {/* Header */}
-      <header className="bg-[#27272a] px-6 py-4 flex justify-between items-center border-b border-[#3f3f46] sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#f59e0b]/10 border border-[#f59e0b]/30 flex items-center justify-center text-sm">
+      <header className="bg-[#27272a] px-4 sm:px-6 py-4 flex justify-between items-center border-b border-[#3f3f46] sticky top-0 z-10">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-[#f59e0b]/10 border border-[#f59e0b]/30 flex items-center justify-center text-sm shrink-0">
             🍽️
           </div>
-          <span className="text-white font-bold text-lg">Orbezo</span>
-          <div className="w-px h-5 bg-[#3f3f46]" />
-          <span className="text-[#a1a1aa] text-sm">Dashboard</span>
+          <span className="text-white font-bold text-base sm:text-lg">Orbezo</span>
+          <div className="w-px h-5 bg-[#3f3f46] shrink-0" />
+          <span className="text-[#a1a1aa] text-sm truncate">Dashboard</span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => navigate('/admin')}
-            className="text-[#a1a1aa] hover:text-white text-sm px-3 py-1.5 rounded-lg hover:bg-[#3f3f46] transition-colors"
+            className="text-[#a1a1aa] hover:text-white text-sm px-2 sm:px-3 py-1.5 rounded-lg hover:bg-[#3f3f46] transition-colors hidden sm:block"
           >
-            ⚙️ Administración
+            ⚙️ <span className="hidden md:inline">Administración</span>
           </button>
           <button
             onClick={() => { cerrarSesion(); navigate('/login') }}
-            className="text-[#71717a] hover:text-[#f59e0b] text-sm px-2 py-1 rounded-lg hover:bg-[#f59e0b]/10 transition-colors"
+            className="text-[#71717a] hover:text-[#f59e0b] text-sm transition-colors px-2 py-1.5 rounded-lg hover:bg-[#f59e0b]/10"
           >
             Salir
           </button>

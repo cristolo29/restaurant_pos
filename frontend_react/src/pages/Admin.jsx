@@ -383,7 +383,6 @@ export default function Admin() {
   const [fechaFin, setFechaFin] = useState('')
   const [comprobanteDetalle, setComprobanteDetalle] = useState(null)
 
-  const usuario    = useAuth(s => s.usuario)
   const cerrarSesion = useAuth(s => s.cerrarSesion)
   const navigate   = useNavigate()
 
@@ -631,12 +630,13 @@ export default function Admin() {
       <header className="bg-[#27272a] px-4 sm:px-6 py-4 flex justify-between items-center border-b border-[#3f3f46] sticky top-0 z-10">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <div className="w-8 h-8 rounded-lg bg-[#f59e0b]/10 border border-[#f59e0b]/30 flex items-center justify-center text-sm shrink-0">
-            ⚙️
+            🍽️
           </div>
-          <span className="text-white font-bold text-base sm:text-lg truncate">Administración</span>
+          <span className="text-white font-bold text-base sm:text-lg">Orbezo</span>
+          <div className="w-px h-5 bg-[#3f3f46] shrink-0" />
+          <span className="text-[#a1a1aa] text-sm truncate">Administración</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[#71717a] text-sm hidden lg:block truncate max-w-32">{usuario?.nombre}</span>
           <button
             onClick={() => navigate('/dashboard')}
             className="text-[#a1a1aa] hover:text-white text-sm px-2 sm:px-3 py-1.5 rounded-lg hover:bg-[#3f3f46] transition-colors hidden sm:block"
