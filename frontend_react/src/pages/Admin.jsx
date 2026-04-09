@@ -8,11 +8,12 @@ import {
   getProductos, crearProducto, actualizarProducto, eliminarProducto,
   getUsuarios, crearUsuario, actualizarUsuario, eliminarUsuario,
   getRoles,
-  getSalones,
+  getSalones, crearSalon, actualizarSalon, eliminarSalon,
   getComprobantes,
 } from '../api/admin'
 
 const TABS = [
+  { id: 'salones',      label: 'Salones',      icon: '🏠' },
   { id: 'mesas',        label: 'Mesas',        icon: '🪑' },
   { id: 'categorias',   label: 'Categorías',   icon: '📂' },
   { id: 'productos',    label: 'Productos',    icon: '🍽️' },
@@ -366,7 +367,7 @@ function ModalDetalleComprobante({ c, onCerrar }) {
 // ══════════════════════════════════════════════════════════════════════════════
 export default function Admin() {
   const [tab, setTab]       = useState('mesas')
-  const [datos, setDatos]   = useState({ mesas: [], categorias: [], productos: [], usuarios: [] })
+  const [datos, setDatos]   = useState({ salones: [], mesas: [], categorias: [], productos: [], usuarios: [] })
   const [comprobantes, setComprobantes] = useState([])
   const [expandido, setExpandido] = useState(null)
   const [roles, setRoles]     = useState([])
@@ -387,16 +388,16 @@ export default function Admin() {
   const navigate   = useNavigate()
 
   const cargar = async () => {
-    const [mesas, categorias, productos, usuarios, roles, salones, comps] = await Promise.all([
+    const [salones, mesas, categorias, productos, usuarios, roles, comps] = await Promise.all([
+      getSalones().catch(() => []),
       getMesas().catch(() => []),
       getCategorias().catch(() => []),
       getProductos().catch(() => []),
       getUsuarios().catch(() => []),
       getRoles().catch(() => []),
-      getSalones().catch(() => []),
       getComprobantes().catch(() => []),
     ])
-    setDatos({ mesas, categorias, productos, usuarios })
+    setDatos({ salones, mesas, categorias, productos, usuarios })
     setRoles(roles)
     setSalones(salones)
     setComprobantes(comps)
@@ -429,7 +430,10 @@ export default function Admin() {
   const guardar = async () => {
     setGuardando(true)
     try {
-      if (tab === 'mesas') {
+      if (tab === 'salones') {
+        const payload = { nombre: form.nombre, descripcion: form.descripcion || '', activo: form.activo !== false }
+        modal.tipo === 'crear' ? await crearSalon(payload) : await actualizarSalon(modal.datos.id, payload)
+      } else if (tab === 'mesas') {
         const payload = { salon_id: Number(form.salon_id), numero: form.numero, capacidad: Number(form.capacidad) || 4 }
         modal.tipo === 'crear' ? await crearMesa(payload) : await actualizarMesa(modal.datos.id, payload)
       } else if (tab === 'categorias') {
@@ -459,6 +463,7 @@ export default function Admin() {
       colorConfirm: 'danger',
       onConfirm: async () => {
         try {
+          if (tab === 'salones')    await eliminarSalon(raw.id)
           if (tab === 'mesas')      await eliminarMesa(raw.id)
           if (tab === 'categorias') await eliminarCategoria(raw.id)
           if (tab === 'productos')  await eliminarProducto(raw.id)
@@ -473,6 +478,7 @@ export default function Admin() {
 
   // Columnas visibles en móvil por tab
   const colsMobile = {
+    salones:    ['Nombre', 'Estado'],
     mesas:      ['Número', 'Estado'],
     categorias: ['Nombre', 'Estado'],
     productos:  ['Nombre', 'Precio'],
@@ -480,6 +486,19 @@ export default function Admin() {
   }
 
   const config = {
+    salones: {
+      columnas: ['Nombre', 'Descripción', 'Estado'],
+      filas: datos.salones.map(s => ({
+        id: s.id, raw: s,
+        celdas: [
+          s.nombre,
+          s.descripcion || <span className="text-[#52525b]">—</span>,
+          <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${s.activo ? 'bg-green-900/40 text-green-400' : 'bg-[#3f3f46] text-[#71717a]'}`}>
+            {s.activo ? 'Activo' : 'Inactivo'}
+          </span>
+        ]
+      }))
+    },
     mesas: {
       columnas: ['Número', 'Salón', 'Capacidad', 'Estado'],
       filas: datos.mesas.map(m => ({
@@ -552,6 +571,16 @@ export default function Admin() {
   const totalRango = comprobantesFiltrados.reduce((s, c) => s + Number(c.total), 0)
 
   const renderForm = () => {
+    if (tab === 'salones') return (
+      <>
+        <Input label="Nombre del área" value={form.nombre || ''} onChange={f('nombre')} placeholder="Ej: Terraza, Salón VIP, Barra" />
+        <Input label="Descripción (opcional)" value={form.descripcion || ''} onChange={f('descripcion')} placeholder="Ej: Área al aire libre" />
+        <Select label="Estado" value={form.activo !== false ? 'true' : 'false'}
+          onChange={e => setForm(p => ({ ...p, activo: e.target.value === 'true' }))}
+          options={[{ value: 'true', label: 'Activo (visible al asignar mesas)' }, { value: 'false', label: 'Inactivo' }]}
+        />
+      </>
+    )
     if (tab === 'mesas') return (
       <>
         <Select label="Salón" value={form.salon_id || ''} onChange={f('salon_id')}

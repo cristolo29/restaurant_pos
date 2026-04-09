@@ -28,7 +28,10 @@ export const eliminarUsuario   = (id) => api.delete(`/api/usuarios/${id}`).then(
 export const getRoles = () => api.get('/api/roles').then(r => r.data)
 
 // Salones
-export const getSalones = () => api.get('/api/salones').then(r => r.data)
+export const getSalones       = () => api.get('/api/salones/todos').then(r => r.data)
+export const crearSalon       = (d) => api.post('/api/salones', d).then(r => r.data)
+export const actualizarSalon  = (id, d) => api.put(`/api/salones/${id}`, d).then(r => r.data)
+export const eliminarSalon    = (id) => api.delete(`/api/salones/${id}`).then(r => r.data)
 
 // Comprobantes
 export const getComprobantes = () => api.get('/api/comprobantes').then(r => r.data)
