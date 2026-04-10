@@ -636,16 +636,35 @@ export default function Admin() {
           <div className="w-px h-5 bg-[#3f3f46] shrink-0" />
           <span className="text-[#a1a1aa] text-sm truncate">Administración</span>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <button
             onClick={() => navigate('/dashboard')}
-            className="text-[#a1a1aa] hover:text-white text-sm px-2 sm:px-3 py-1.5 rounded-lg hover:bg-[#3f3f46] transition-colors hidden sm:block"
+            className="text-[#a1a1aa] hover:text-white text-sm px-2 sm:px-3 py-2 rounded-lg hover:bg-[#3f3f46] transition-colors flex items-center gap-1"
+            title="Dashboard"
           >
-            📊 <span className="hidden md:inline">Dashboard</span>
+            <span>📊</span>
+            <span className="hidden sm:inline text-xs sm:text-sm">Dashboard</span>
           </button>
           <button
+            onClick={() => navigate('/mesas')}
+            className="text-[#a1a1aa] hover:text-white text-sm px-2 sm:px-3 py-2 rounded-lg hover:bg-[#3f3f46] transition-colors flex items-center gap-1"
+            title="Mesas"
+          >
+            <span>🪑</span>
+            <span className="hidden sm:inline text-xs sm:text-sm">Mesas</span>
+          </button>
+          <button
+            onClick={() => navigate('/cocina')}
+            className="text-[#a1a1aa] hover:text-white text-sm px-2 sm:px-3 py-2 rounded-lg hover:bg-[#3f3f46] transition-colors flex items-center gap-1"
+            title="Cocina"
+          >
+            <span>👨‍🍳</span>
+            <span className="hidden sm:inline text-xs sm:text-sm">Cocina</span>
+          </button>
+          <div className="w-px h-5 bg-[#3f3f46] mx-1 shrink-0" />
+          <button
             onClick={() => { cerrarSesion(); navigate('/login') }}
-            className="text-[#71717a] hover:text-[#f59e0b] text-sm transition-colors px-2 py-1.5 rounded-lg hover:bg-[#f59e0b]/10"
+            className="text-[#71717a] hover:text-[#f59e0b] text-xs sm:text-sm transition-colors px-2 py-2 rounded-lg hover:bg-[#f59e0b]/10"
           >
             Salir
           </button>
