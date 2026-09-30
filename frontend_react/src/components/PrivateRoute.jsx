@@ -1,12 +1,7 @@
 import { Navigate } from 'react-router-dom'
 import useAuth from '../store/useAuth'
 
-const RUTA_POR_ROL = {
-  admin:    '/dashboard',
-  cocinero: '/cocina',
-}
-
-const HOME_POR_ROL = (rol) => RUTA_POR_ROL[rol] || '/mesas'
+import { homeParaRol } from '../config/navegacion'
 
 /**
  * PrivateRoute — protege una ruta por autenticación y opcionalmente por rol.
@@ -23,7 +18,7 @@ export default function PrivateRoute({ children, roles }) {
 
   // Rol no permitido → redirigir al home del rol
   if (roles && !roles.includes(usuario.rol_nombre)) {
-    return <Navigate to={HOME_POR_ROL(usuario.rol_nombre)} replace />
+    return <Navigate to={homeParaRol(usuario.rol_nombre)} replace />
   }
 
   return children

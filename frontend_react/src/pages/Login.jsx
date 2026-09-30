@@ -3,7 +3,7 @@ import { useNavigate, Navigate } from 'react-router-dom'
 import useAuth from '../store/useAuth'
 import { login } from '../api/auth'
 
-const RUTAS = { admin: '/dashboard', cocinero: '/cocina', cajero: '/mesas' }
+import { homeParaRol } from '../config/navegacion'
 
 export default function Login() {
   const [pin, setPin] = useState('')
@@ -14,7 +14,7 @@ export default function Login() {
   const usuario    = useAuth(s => s.usuario)
   const navigate   = useNavigate()
 
-  if (usuario) return <Navigate to={RUTAS[usuario.rol_nombre] || '/mesas'} replace />
+  if (usuario) return <Navigate to={homeParaRol(usuario.rol_nombre)} replace />
 
   const presionar = (val) => {
     if (val === 'DEL') return setPin(p => p.slice(0, -1))
@@ -29,7 +29,7 @@ export default function Login() {
     try {
       const { usuario, access_token } = await login(pin)
       setUsuario(usuario, access_token)
-      navigate(RUTAS[usuario.rol_nombre] || '/mesas', { replace: true })
+      navigate(homeParaRol(usuario.rol_nombre), { replace: true })
     } catch {
       setError('PIN incorrecto. Intenta de nuevo.')
       setPin('')
