@@ -166,7 +166,7 @@ export default function Cobro() {
       <header className="bg-[#27272a] px-6 py-4 flex justify-between items-center border-b border-[#3f3f46]">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/comanda', { state: { pedido, mesa } })}
             className="text-[#71717a] hover:text-white transition-colors p-1 rounded-lg hover:bg-[#3f3f46]"
           >
             ← Comanda
