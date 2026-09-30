@@ -80,3 +80,14 @@ def test_flujo_completo(client, auth_mozo, auth_cajero, mesa, usuario_mozo, prod
     # Mesa libre
     db.refresh(mesa)
     assert mesa.estado == "disponible"
+
+
+def test_estado_item_invalido_devuelve_422(client, auth_mozo):
+    r = client.put("/api/pedidos/items/1/estado", json={"estado": "volando"}, headers=auth_mozo)
+    assert r.status_code == 422
+
+
+def test_respuestas_incluyen_cabeceras_de_seguridad(client):
+    r = client.get("/")
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert r.headers["x-frame-options"] == "DENY"

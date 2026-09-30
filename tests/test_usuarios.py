@@ -61,3 +61,41 @@ def test_crear_usuario_pin_invalido(client, auth_admin, rol_mozo):
             "nombre": "X", "email": f"x{pin}@t.com", "pin": pin, "rol_id": rol_mozo.id, "activo": True
         })
         assert r.status_code == 422
+
+
+def test_admin_no_puede_eliminarse_a_si_mismo(client, auth_admin, usuario_admin):
+    r = client.delete(f"/api/usuarios/{usuario_admin.id}", headers=auth_admin)
+    assert r.status_code == 400
+
+
+def test_admin_no_puede_desactivarse_ni_quitarse_el_rol(client, auth_admin, usuario_admin, rol_mozo):
+    base = {"nombre": usuario_admin.nombre, "email": usuario_admin.email}
+    r = client.put(f"/api/usuarios/{usuario_admin.id}", headers=auth_admin,
+                   json={**base, "rol_id": usuario_admin.rol_id, "activo": False})
+    assert r.status_code == 400
+    r = client.put(f"/api/usuarios/{usuario_admin.id}", headers=auth_admin,
+                   json={**base, "rol_id": rol_mozo.id, "activo": True})
+    assert r.status_code == 400
+
+
+def test_admin_puede_eliminar_a_otro_admin(client, auth_admin, usuario_admin, db, rol_admin):
+    from app import models
+    otro = models.Usuario(rol_id=rol_admin.id, nombre="Otro Admin", email="otro@t.com", pin="8888", activo=True)
+    db.add(otro); db.commit(); db.refresh(otro)
+    r = client.delete(f"/api/usuarios/{otro.id}", headers=auth_admin)
+    assert r.status_code == 200
+
+
+def test_eliminar_usuario_con_pedidos_devuelve_409(client, auth_admin, usuario_mozo, mesa, db):
+    from app import models
+    db.add(models.Pedido(mesa_id=mesa.id, usuario_id=usuario_mozo.id, estado="abierto"))
+    db.commit()
+    r = client.delete(f"/api/usuarios/{usuario_mozo.id}", headers=auth_admin)
+    assert r.status_code == 409
+
+
+def test_crear_usuario_email_invalido(client, auth_admin, rol_mozo):
+    r = client.post("/api/usuarios", headers=auth_admin, json={
+        "nombre": "X", "email": "no-es-email", "pin": "4321", "rol_id": rol_mozo.id, "activo": True
+    })
+    assert r.status_code == 422

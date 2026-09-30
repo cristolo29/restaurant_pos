@@ -9,6 +9,18 @@ router = APIRouter(prefix="/api/usuarios", tags=["Usuarios"])
 _admin = Depends(require_roles("admin"))
 
 
+def _admins_activos_restantes(db: Session, excluir_id: int) -> int:
+    return db.query(models.Usuario).join(models.Rol).filter(
+        models.Rol.nombre == "admin",
+        models.Usuario.activo == True,
+        models.Usuario.id != excluir_id,
+    ).count()
+
+
+def _es_admin_activo(u: models.Usuario) -> bool:
+    return bool(u.activo and u.rol and u.rol.nombre == "admin")
+
+
 @router.get("", response_model=list[schemas.UsuarioResponse])
 def obtener_usuarios(db: Session = Depends(get_db), _=_admin):
     usuarios = db.query(models.Usuario).order_by(models.Usuario.nombre).all()
@@ -45,7 +57,12 @@ def crear_usuario(datos: schemas.UsuarioCreate, db: Session = Depends(get_db), _
 
 
 @router.put("/{usuario_id}", response_model=schemas.UsuarioResponse)
-def actualizar_usuario(usuario_id: int, datos: schemas.UsuarioUpdate, db: Session = Depends(get_db), _=_admin):
+def actualizar_usuario(
+    usuario_id: int,
+    datos: schemas.UsuarioUpdate,
+    db: Session = Depends(get_db),
+    admin: models.Usuario = Depends(require_roles("admin")),
+):
     usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -62,6 +79,15 @@ def actualizar_usuario(usuario_id: int, datos: schemas.UsuarioUpdate, db: Sessio
         ).first()
         if pin_en_uso:
             raise HTTPException(status_code=400, detail=f"El PIN ya está asignado a '{pin_en_uso.nombre}'")
+    nuevo_rol = db.query(models.Rol).filter(models.Rol.id == datos.rol_id).first()
+    if not nuevo_rol:
+        raise HTTPException(status_code=400, detail="El rol indicado no existe")
+    seguira_admin = datos.activo and nuevo_rol.nombre == "admin"
+    if _es_admin_activo(usuario) and not seguira_admin:
+        if usuario.id == admin.id:
+            raise HTTPException(status_code=400, detail="No puedes quitarte el rol de admin ni desactivarte a ti mismo")
+        if _admins_activos_restantes(db, usuario.id) == 0:
+            raise HTTPException(status_code=400, detail="Debe quedar al menos un administrador activo")
     usuario.rol_id = datos.rol_id
     usuario.nombre = datos.nombre
     usuario.email  = datos.email
@@ -76,10 +102,25 @@ def actualizar_usuario(usuario_id: int, datos: schemas.UsuarioUpdate, db: Sessio
 
 
 @router.delete("/{usuario_id}")
-def eliminar_usuario(usuario_id: int, db: Session = Depends(get_db), _=_admin):
+def eliminar_usuario(
+    usuario_id: int,
+    db: Session = Depends(get_db),
+    admin: models.Usuario = Depends(require_roles("admin")),
+):
     usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    if usuario.id == admin.id:
+        raise HTTPException(status_code=400, detail="No puedes eliminar tu propio usuario")
+    if _es_admin_activo(usuario) and _admins_activos_restantes(db, usuario.id) == 0:
+        raise HTTPException(status_code=400, detail="Debe quedar al menos un administrador activo")
+    tiene_historial = (
+        db.query(models.Pedido).filter(models.Pedido.usuario_id == usuario.id).first()
+        or db.query(models.Comprobante).filter(models.Comprobante.usuario_id == usuario.id).first()
+    )
+    if tiene_historial:
+        raise HTTPException(status_code=409, detail="El usuario tiene pedidos o comprobantes; desactívalo en vez de eliminarlo")
+    nombre = usuario.nombre
     db.delete(usuario)
     db.commit()
-    return {"mensaje": f"Usuario '{usuario.nombre}' eliminado"}
+    return {"mensaje": f"Usuario '{nombre}' eliminado"}

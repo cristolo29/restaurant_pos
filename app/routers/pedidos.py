@@ -131,7 +131,7 @@ def agregar_item(pedido_id: int, item: schemas.PedidoItemCreate, db: Session = D
 @router.put("/items/{item_id}/estado")
 def actualizar_estado_item(
     item_id: int,
-    datos: dict,
+    datos: schemas.ItemEstadoUpdate,
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user),
 ):
@@ -139,10 +139,7 @@ def actualizar_estado_item(
     Avanza el estado de un ítem (todos los roles) o lo cancela (solo mozo/cajero/admin).
     El cocinero solo puede avanzar estados, no cancelar.
     """
-    estados_validos = ["pendiente", "en_preparacion", "listo", "entregado", "cancelado"]
-    nuevo_estado = datos.get("estado")
-    if nuevo_estado not in estados_validos:
-        raise HTTPException(status_code=400, detail=f"Estado inválido: {nuevo_estado}")
+    nuevo_estado = datos.estado
 
     rol = current_user.rol.nombre
     if nuevo_estado == "cancelado" and rol not in ("mozo", "cajero", "admin"):

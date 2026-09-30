@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Literal
 
 
 # --- Categorias ---
@@ -62,7 +62,7 @@ class MesaResponse(MesaCreate):
 class UsuarioCreate(BaseModel):
     rol_id: int
     nombre: str
-    email: str
+    email: str = Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=150)
     pin: Optional[str] = Field(default=None, pattern=r"^\d{4,6}$")
     activo: bool = True
 
@@ -70,7 +70,7 @@ class UsuarioCreate(BaseModel):
 class UsuarioUpdate(BaseModel):
     rol_id: int
     nombre: str
-    email: str
+    email: str = Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=150)
     pin: Optional[str] = Field(default=None, pattern=r"^\d{4,6}$")
     activo: bool = True
 
@@ -79,7 +79,7 @@ class UsuarioResponse(BaseModel):
     id: int
     rol_id: int
     nombre: str
-    email: str
+    email: str = Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=150)
     activo: bool
     rol_nombre: Optional[str] = None
 
@@ -88,6 +88,10 @@ class UsuarioResponse(BaseModel):
 
 
 # --- Pedido Items ---
+
+class ItemEstadoUpdate(BaseModel):
+    estado: Literal["pendiente", "en_preparacion", "listo", "entregado", "cancelado"]
+
 
 class PedidoItemCreate(BaseModel):
     producto_id: int
