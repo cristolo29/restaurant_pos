@@ -1,6 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import useAuth from '../store/useAuth'
 import ModalConfirm from '../components/ModalConfirm'
 import {
   getMesas, crearMesa, actualizarMesa, eliminarMesa,
@@ -372,7 +370,6 @@ export default function Admin() {
   const [expandido, setExpandido] = useState(null)
   const [roles, setRoles]     = useState([])
   const [salones, setSalones] = useState([])
-  const [menuAbierto, setMenuAbierto] = useState(false)
   const [modal, setModal]   = useState(null)
   const [modalConfirm, setModalConfirm] = useState(null)
   const [form, setForm]     = useState({})
@@ -384,8 +381,6 @@ export default function Admin() {
   const [fechaFin, setFechaFin] = useState('')
   const [comprobanteDetalle, setComprobanteDetalle] = useState(null)
 
-  const cerrarSesion = useAuth(s => s.cerrarSesion)
-  const navigate   = useNavigate()
 
   const cargar = async () => {
     const [salones, mesas, categorias, productos, usuarios, roles, comps] = await Promise.all([
@@ -637,64 +632,6 @@ export default function Admin() {
           <div className="w-px h-5 bg-[#3f3f46] shrink-0" />
           <span className="text-[#a1a1aa] text-sm truncate">Administración</span>
         </div>
-
-        {/* Nav desktop */}
-        <div className="hidden sm:flex items-center gap-2 shrink-0">
-          <button onClick={() => navigate('/dashboard')}
-            className="text-[#a1a1aa] hover:text-white text-sm px-3 py-1.5 rounded-lg hover:bg-[#3f3f46] transition-colors flex items-center gap-1.5">
-            <span>📊</span><span>Dashboard</span>
-          </button>
-          <button onClick={() => navigate('/mesas')}
-            className="text-[#a1a1aa] hover:text-white text-sm px-3 py-1.5 rounded-lg hover:bg-[#3f3f46] transition-colors flex items-center gap-1.5">
-            <span>🪑</span><span>Mesas</span>
-          </button>
-          <button onClick={() => navigate('/cocina')}
-            className="text-[#a1a1aa] hover:text-white text-sm px-3 py-1.5 rounded-lg hover:bg-[#3f3f46] transition-colors flex items-center gap-1.5">
-            <span>👨‍🍳</span><span>Cocina</span>
-          </button>
-          <div className="w-px h-5 bg-[#3f3f46] mx-1" />
-          <button onClick={() => { cerrarSesion(); navigate('/login') }}
-            className="text-[#71717a] hover:text-[#f59e0b] text-sm transition-colors px-2 py-1.5 rounded-lg hover:bg-[#f59e0b]/10">
-            Salir
-          </button>
-        </div>
-
-        {/* Hamburguesa móvil */}
-        <button
-          onClick={() => setMenuAbierto(v => !v)}
-          className="sm:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#3f3f46] transition-colors text-[#a1a1aa] hover:text-white text-lg shrink-0"
-          aria-label="Menú"
-        >
-          {menuAbierto ? '✕' : '☰'}
-        </button>
-
-        {/* Dropdown móvil */}
-        {menuAbierto && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setMenuAbierto(false)} />
-            <div className="absolute top-full right-0 left-0 bg-[#27272a] border-b border-[#3f3f46] z-50 py-2 shadow-xl sm:hidden">
-              {[
-                { icon: '📊', label: 'Dashboard', path: '/dashboard' },
-                { icon: '🪑', label: 'Mesas',     path: '/mesas' },
-                { icon: '👨‍🍳', label: 'Cocina',    path: '/cocina' },
-              ].map(({ icon, label, path }) => (
-                <button key={path}
-                  onClick={() => { navigate(path); setMenuAbierto(false) }}
-                  className="w-full flex items-center gap-3 px-5 py-3 text-[#a1a1aa] hover:text-white hover:bg-[#3f3f46] transition-colors text-sm text-left"
-                >
-                  <span className="text-base">{icon}</span>{label}
-                </button>
-              ))}
-              <div className="mx-5 my-1 border-t border-[#3f3f46]" />
-              <button
-                onClick={() => { cerrarSesion(); navigate('/login') }}
-                className="w-full flex items-center gap-3 px-5 py-3 text-[#ef4444] hover:bg-[#ef4444]/10 transition-colors text-sm text-left"
-              >
-                <span className="text-base">🚪</span>Salir
-              </button>
-            </div>
-          </>
-        )}
       </header>
 
       {/* Tabs */}
