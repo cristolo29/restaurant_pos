@@ -1,33 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import useAuth from '../store/useAuth'
-import { getMesas, ocuparMesa } from '../api/mesas'
+import useMesas from '../store/useMesas'
+import { tiempoTranscurrido } from '../utils/mesasDerivadas'
+import { ocuparMesa } from '../api/mesas'
 import { getPedidoAbierto } from '../api/pedidos'
 import ModalConfirm from '../components/ModalConfirm'
 
 export default function Mesas() {
-  const [mesas, setMesas] = useState([])
-  const [cargando, setCargando] = useState(true)
+  const mesas = useMesas(s => s.mesas)
+  const cargando = useMesas(s => s.cargando)
+  const cargar = useMesas(s => s.cargar)
   const [mesaActiva, setMesaActiva] = useState(null)
   const [modal, setModal] = useState(null)
-  const usuario = useAuth(s => s.usuario)
-  const cerrarSesion = useAuth(s => s.cerrarSesion)
   const navigate = useNavigate()
-
-  const cargar = async () => {
-    try {
-      const data = await getMesas()
-      setMesas(data)
-    } finally {
-      setCargando(false)
-    }
-  }
-
-  useEffect(() => {
-    cargar()
-    const intervalo = setInterval(cargar, 10000)
-    return () => clearInterval(intervalo)
-  }, [])
 
   const seleccionar = async (mesa) => {
     if (mesaActiva) return
@@ -61,44 +46,8 @@ export default function Mesas() {
   const disponibles = mesas.filter(m => m.estado === 'disponible').length
   const ocupadas    = mesas.filter(m => m.estado === 'ocupada').length
 
-  const tiempoTranscurrido = (isoString) => {
-    if (!isoString) return null
-    const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 60000)
-    if (diff < 60) return `${diff}m`
-    return `${Math.floor(diff / 60)}h ${diff % 60}m`
-  }
-
-  const iniciales = usuario?.nombre
-    ?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?'
-
   return (
     <div className="min-h-screen bg-[#18181b] text-white flex flex-col">
-
-      {/* Header */}
-      <header className="bg-[#27272a] px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center border-b border-[#3f3f46] sticky top-0 z-10">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-[#f59e0b]/10 border border-[#f59e0b]/30 flex items-center justify-center text-sm shrink-0">
-            🍽️
-          </div>
-          <span className="text-white font-bold text-base sm:text-lg">Orbezo</span>
-        </div>
-
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="text-right hidden sm:block">
-            <p className="text-white text-sm font-medium leading-tight">{usuario?.nombre}</p>
-            <p className="text-[#71717a] text-xs capitalize">{usuario?.rol_nombre}</p>
-          </div>
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#f59e0b]/15 border border-[#f59e0b]/30 flex items-center justify-center text-[#f59e0b] text-xs sm:text-sm font-bold">
-            {iniciales}
-          </div>
-          <button
-            onClick={() => { cerrarSesion(); navigate('/login') }}
-            className="text-[#71717a] hover:text-[#f59e0b] text-sm transition-colors px-2 py-1.5 rounded-lg hover:bg-[#f59e0b]/10"
-          >
-            Salir
-          </button>
-        </div>
-      </header>
 
       <main className="p-4 sm:p-6 flex-1">
 
