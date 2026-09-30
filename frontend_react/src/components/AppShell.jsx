@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import useAuth from '../store/useAuth'
 import useMesas from '../store/useMesas'
@@ -40,6 +40,18 @@ export default function AppShell() {
     return useMesas.getState().iniciarPolling()
   }, [usuarioId, rol])
 
+  // El shell sigue montado al navegar: refrescar mesas en cada cambio de ruta
+  // (la primera ejecución la cubre el polling, que carga al montar).
+  const primeraRuta = useRef(true)
+  useEffect(() => {
+    if (primeraRuta.current) {
+      primeraRuta.current = false
+      return
+    }
+    if (usuarioId == null || rol === 'cocinero') return
+    useMesas.getState().cargar()
+  }, [pathname, usuarioId, rol])
+
   useEffect(() => useConexion.getState().iniciarEscucha(), [])
 
   const destinos = destinosParaRol(rol)
@@ -63,7 +75,7 @@ export default function AppShell() {
   }
 
   const banner = !enLinea && (
-    <div className="fixed top-0 inset-x-0 z-50 bg-[#ef4444] text-white text-sm font-medium text-center py-1.5 px-3">
+    <div className="bg-[#ef4444] text-white text-sm font-medium text-center py-1.5 px-3">
       Sin conexión — los cambios pueden no guardarse
     </div>
   )
@@ -89,7 +101,7 @@ export default function AppShell() {
 
   return (
     <>
-      {banner}
+      <div className="md:pl-20">{banner}</div>
 
       {/* Barra lateral (≥ md) */}
       <nav className="hidden md:flex fixed inset-y-0 left-0 w-20 z-40 flex-col bg-[#18181b] border-r border-[#3f3f46]">
