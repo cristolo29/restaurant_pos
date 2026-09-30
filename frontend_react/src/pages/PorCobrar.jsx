@@ -49,8 +49,8 @@ export default function PorCobrar() {
   }
 
   return (
-    <div className="bg-[#18181b] text-white">
-      <main className="p-4 sm:p-6">
+    <div className="min-h-screen bg-[#18181b] text-white flex flex-col">
+      <main className="p-4 sm:p-6 flex-1">
         <h2 className="text-xl sm:text-2xl font-bold text-white mb-5 sm:mb-8">Por cobrar</h2>
 
         {cargando && mesas.length === 0 ? (
