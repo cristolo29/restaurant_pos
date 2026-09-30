@@ -89,7 +89,7 @@ def rol_cajero(db):
 def usuario_admin(db, rol_admin):
     u = models.Usuario(
         rol_id=rol_admin.id, nombre="Admin Test",
-        email="admin@test.com", password_hash="x", pin="1111", activo=True
+        email="admin@test.com", pin="1111", activo=True
     )
     db.add(u)
     db.commit()
@@ -101,7 +101,7 @@ def usuario_admin(db, rol_admin):
 def usuario_mozo(db, rol_mozo):
     u = models.Usuario(
         rol_id=rol_mozo.id, nombre="Mozo Test",
-        email="mozo@test.com", password_hash="x", pin="2222", activo=True
+        email="mozo@test.com", pin="2222", activo=True
     )
     db.add(u)
     db.commit()
@@ -113,7 +113,7 @@ def usuario_mozo(db, rol_mozo):
 def usuario_cajero(db, rol_cajero):
     u = models.Usuario(
         rol_id=rol_cajero.id, nombre="Cajero Test",
-        email="cajero@test.com", password_hash="x", pin="3333", activo=True
+        email="cajero@test.com", pin="3333", activo=True
     )
     db.add(u)
     db.commit()

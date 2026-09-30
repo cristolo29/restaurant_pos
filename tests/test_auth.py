@@ -19,7 +19,7 @@ def test_login_usuario_inactivo(client, db, rol_mozo):
     from app import models
     u = models.Usuario(
         rol_id=rol_mozo.id, nombre="Inactivo",
-        email="inactivo@test.com", password_hash="x", pin="5555", activo=False
+        email="inactivo@test.com", pin="5555", activo=False
     )
     db.add(u); db.commit()
     r = client.post("/api/login", json={"pin": "5555"})
