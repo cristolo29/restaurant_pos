@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas
@@ -17,9 +18,25 @@ def obtener_mesas(
         p.mesa_id: p
         for p in db.query(models.Pedido).filter(models.Pedido.estado == "abierto").all()
     }
+    conteos = {}
+    if pedidos_abiertos:
+        ids = [p.id for p in pedidos_abiertos.values()]
+        filas = (
+            db.query(
+                models.PedidoItem.pedido_id,
+                func.count(),
+                func.count(case((models.PedidoItem.estado.in_(["pendiente", "en_preparacion"]), 1))),
+                func.count(case((models.PedidoItem.estado == "listo", 1))),
+            )
+            .filter(models.PedidoItem.pedido_id.in_(ids), models.PedidoItem.estado != "cancelado")
+            .group_by(models.PedidoItem.pedido_id)
+            .all()
+        )
+        conteos = {f[0]: (f[1], f[2], f[3]) for f in filas}
     resultado = []
     for mesa in mesas:
         pedido = pedidos_abiertos.get(mesa.id)
+        total, pendientes, listos = conteos.get(pedido.id, (0, 0, 0)) if pedido else (None, None, None)
         resultado.append(schemas.MesaResponse(
             id           = mesa.id,
             salon_id     = mesa.salon_id,
@@ -28,6 +45,11 @@ def obtener_mesas(
             estado       = mesa.estado,
             pedido_total = float(pedido.total) if pedido else None,
             pedido_inicio = pedido.created_at.isoformat() if pedido and pedido.created_at else None,
+            pedido_id    = pedido.id if pedido else None,
+            mozo_id      = pedido.usuario_id if pedido else None,
+            items_total      = total,
+            items_pendientes = pendientes,
+            items_listos     = listos,
         ))
     return resultado
 

@@ -47,6 +47,11 @@ class MesaResponse(MesaCreate):
     estado: str
     pedido_total: Optional[float] = None
     pedido_inicio: Optional[str] = None
+    pedido_id: Optional[int] = None
+    mozo_id: Optional[int] = None
+    items_total: Optional[int] = None
+    items_pendientes: Optional[int] = None
+    items_listos: Optional[int] = None
 
     class Config:
         from_attributes = True
