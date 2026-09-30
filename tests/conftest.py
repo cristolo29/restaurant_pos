@@ -2,15 +2,19 @@
 conftest.py — fixtures compartidas para todos los tests.
 Usa una BD PostgreSQL de prueba separada (orbezo_test).
 """
+import os
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
+os.environ.setdefault("SECRET_KEY", "clave-de-pruebas-" + "x" * 32)
+
 from app.main import app
 from app.database import Base, get_db
 from app.security import create_access_token
 from app import models
+from app.ratelimit import login_limiter
 
 # ── Base de datos de prueba ────────────────────────────────────────────────────
 TEST_DB_URL = "postgresql://admin:1234@localhost:5432/orbezo_test"
@@ -40,6 +44,7 @@ app.dependency_overrides[get_db] = override_get_db
 def limpiar_bd():
     """Crea las tablas antes del test y las elimina al terminar."""
     Base.metadata.create_all(bind=engine_test)
+    login_limiter.limpiar()
     yield
     Base.metadata.drop_all(bind=engine_test)
 

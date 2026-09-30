@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 
 
@@ -63,7 +63,7 @@ class UsuarioCreate(BaseModel):
     rol_id: int
     nombre: str
     email: str
-    pin: Optional[str] = None
+    pin: Optional[str] = Field(default=None, pattern=r"^\d{4,6}$")
     activo: bool = True
 
 
@@ -71,7 +71,7 @@ class UsuarioUpdate(BaseModel):
     rol_id: int
     nombre: str
     email: str
-    pin: Optional[str] = None
+    pin: Optional[str] = Field(default=None, pattern=r"^\d{4,6}$")
     activo: bool = True
 
 
@@ -80,7 +80,6 @@ class UsuarioResponse(BaseModel):
     rol_id: int
     nombre: str
     email: str
-    pin: Optional[str]
     activo: bool
     rol_nombre: Optional[str] = None
 

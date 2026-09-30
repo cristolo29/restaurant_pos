@@ -7,7 +7,13 @@ from app.database import get_db
 from app import models
 
 import os
-SECRET_KEY = os.getenv("SECRET_KEY", "orbezo-secret-key-local-only")
+
+SECRET_KEY = os.getenv("SECRET_KEY", "")
+if len(SECRET_KEY) < 32:
+    raise RuntimeError(
+        "SECRET_KEY no definida o demasiado corta (mínimo 32 caracteres). "
+        "Genera una con: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+    )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 12
 

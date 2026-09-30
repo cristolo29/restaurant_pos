@@ -47,3 +47,17 @@ def test_eliminar_usuario(client, auth_admin, usuario_mozo):
 def test_listar_usuarios_solo_admin(client, auth_mozo):
     r = client.get("/api/usuarios", headers=auth_mozo)
     assert r.status_code == 403
+
+
+def test_respuesta_usuarios_no_expone_pin(client, auth_admin, usuario_mozo):
+    r = client.get("/api/usuarios", headers=auth_admin)
+    assert r.status_code == 200
+    assert all("pin" not in u for u in r.json())
+
+
+def test_crear_usuario_pin_invalido(client, auth_admin, rol_mozo):
+    for pin in ("12", "abcd", "1234567"):
+        r = client.post("/api/usuarios", headers=auth_admin, json={
+            "nombre": "X", "email": f"x{pin}@t.com", "pin": pin, "rol_id": rol_mozo.id, "activo": True
+        })
+        assert r.status_code == 422

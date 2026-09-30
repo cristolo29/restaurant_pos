@@ -40,3 +40,19 @@ def test_endpoint_rol_insuficiente(client, auth_mozo):
     """Un mozo no puede listar usuarios (solo admin)."""
     r = client.get("/api/usuarios", headers=auth_mozo)
     assert r.status_code == 403
+
+
+def test_login_bloquea_tras_intentos_fallidos(client, usuario_mozo):
+    for _ in range(5):
+        assert client.post("/api/login", json={"pin": "9999"}).status_code == 401
+    r = client.post("/api/login", json={"pin": "2222"})  # incluso el PIN correcto queda bloqueado
+    assert r.status_code == 429
+    assert "Retry-After" in r.headers
+
+
+def test_login_exitoso_reinicia_contador(client, usuario_mozo):
+    for _ in range(4):
+        client.post("/api/login", json={"pin": "9999"})
+    assert client.post("/api/login", json={"pin": "2222"}).status_code == 200
+    for _ in range(4):
+        assert client.post("/api/login", json={"pin": "9999"}).status_code == 401

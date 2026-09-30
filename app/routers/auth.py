@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas
+from app.ratelimit import login_limiter
 from app.security import create_access_token, require_roles
 
 router = APIRouter(prefix="/api", tags=["Auth"])
@@ -17,14 +18,25 @@ def obtener_roles(
 
 
 @router.post("/login", response_model=schemas.TokenResponse)
-def login_con_pin(login_data: schemas.LoginPIN, db: Session = Depends(get_db)):
+def login_con_pin(request: Request, login_data: schemas.LoginPIN, db: Session = Depends(get_db)):
+    ip = request.client.host if request.client else "desconocida"
+    espera = login_limiter.segundos_bloqueado(ip)
+    if espera:
+        raise HTTPException(
+            status_code=429,
+            detail="Demasiados intentos fallidos. Intenta de nuevo más tarde.",
+            headers={"Retry-After": str(espera)},
+        )
     usuario = db.query(models.Usuario).filter(
         models.Usuario.pin == login_data.pin,
         models.Usuario.activo == True,
     ).first()
 
     if not usuario:
+        login_limiter.registrar_fallo(ip)
         raise HTTPException(status_code=401, detail="PIN incorrecto o usuario inactivo")
+
+    login_limiter.reiniciar(ip)
 
     token = create_access_token(usuario.id, usuario.rol.nombre)
     return {
