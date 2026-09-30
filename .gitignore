@@ -17,3 +17,6 @@ frontend_react/dist/
 
 # Sistema
 .DS_Store
+
+# Superpowers (scratch de ejecución de planes)
+.superpowers/
