@@ -12,11 +12,11 @@ export const getPedido = (pedido_id) =>
 export const agregarItem = (pedido_id, producto_id, cantidad, nota = '') =>
   api.post(`/api/pedidos/${pedido_id}/items`, { producto_id, cantidad, nota }).then(r => r.data)
 
-export const cancelarPedido = (pedido_id) =>
-  api.put(`/api/pedidos/${pedido_id}/cancelar`).then(r => r.data)
+export const cancelarPedido = (pedido_id, motivo) =>
+  api.put(`/api/pedidos/${pedido_id}/cancelar`, { motivo }).then(r => r.data)
 
-export const cancelarItem = (item_id) =>
-  api.put(`/api/pedidos/items/${item_id}/estado`, { estado: 'cancelado' }).then(r => r.data)
+export const cancelarItem = (item_id, motivo) =>
+  api.put(`/api/pedidos/items/${item_id}/estado`, { estado: 'cancelado', motivo }).then(r => r.data)
 
 export const cerrarPedido = (pedido_id) =>
   api.put(`/api/pedidos/${pedido_id}/cerrar`).then(r => r.data)

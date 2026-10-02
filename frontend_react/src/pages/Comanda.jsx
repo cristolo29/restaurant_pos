@@ -125,8 +125,9 @@ export default function Comanda() {
       mensaje: `"${item.nombre}" será cancelado.`,
       labelConfirm: 'Quitar',
       colorConfirm: 'danger',
-      onConfirm: async () => {
-        await cancelarItem(item.id)
+      pedirMotivo: true,
+      onConfirm: async (motivo) => {
+        await cancelarItem(item.id, motivo)
         await recargarPedido()
       },
     })
@@ -138,8 +139,9 @@ export default function Comanda() {
       mensaje: 'Se cancelará el pedido y la mesa quedará disponible.',
       labelConfirm: 'Anular',
       colorConfirm: 'danger',
-      onConfirm: async () => {
-        if (pedido) await cancelarPedido(pedido.id)
+      pedirMotivo: true,
+      onConfirm: async (motivo) => {
+        if (pedido) await cancelarPedido(pedido.id, motivo)
         else        await liberarMesa(mesa.id)
         navigate('/mesas')
       },
@@ -151,7 +153,7 @@ export default function Comanda() {
       const actual = pedido ? await getPedido(pedido.id) : null
       const hayOrden = actual?.items?.some(i => i.estado !== 'cancelado')
       if (!hayOrden) {
-        if (actual) await cancelarPedido(actual.id)
+        if (actual) await cancelarPedido(actual.id, 'Pedido vacío: se salió de la comanda sin enviar ítems')
         else        await liberarMesa(mesa.id)
       }
     } catch { /* no bloquear la navegación */ }
@@ -193,6 +195,19 @@ export default function Comanda() {
   const totalGeneral  = totalCarrito + totalEnviado
   const totalItems    = carrito.length + itemsEnviados.length
 
+  // Reglas del mozo (el backend es la autoridad; aquí solo se evita ofrecer lo que rechazaría)
+  const esMozo = usuario?.rol_nombre === 'mozo'
+  const pedidoAjeno = esMozo && pedido && pedido.usuario_id !== usuario?.id
+  const hayItemsEnCocina = itemsEnviados.some(i => i.estado !== 'pendiente')
+  const motivoNoAnular = !esMozo || !pedido ? ''
+    : pedidoAjeno ? 'Solo puedes anular pedidos que abriste tú.'
+    : hayItemsEnCocina ? 'Hay ítems enviados a cocina: pide a un cajero o administrador que anule el pedido.'
+    : ''
+  const motivoNoQuitar = (item) => !esMozo ? ''
+    : pedidoAjeno ? 'Solo puedes quitar ítems de tus pedidos.'
+    : item.estado !== 'pendiente' ? 'Ya está en cocina: pide a un cajero o administrador que lo quite.'
+    : ''
+
   const estadoBadge = (estado) => {
     const map    = { pendiente: 'bg-[#3f3f46] text-[#a1a1aa]', en_preparacion: 'bg-amber-900/40 text-amber-400', listo: 'bg-green-900/40 text-green-400', entregado: 'bg-blue-900/40 text-blue-400' }
     const labels = { pendiente: 'Pendiente', en_preparacion: 'En cocina', listo: '✓ Listo', entregado: 'Entregado' }
@@ -225,7 +240,9 @@ export default function Comanda() {
         <div className="flex gap-1.5 sm:gap-2 shrink-0">
           <button
             onClick={anular}
-            className="border border-[#ef4444]/40 text-[#ef4444] px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm hover:bg-[#ef4444]/10 transition-colors"
+            disabled={!!motivoNoAnular}
+            title={motivoNoAnular || undefined}
+            className="border border-[#ef4444]/40 text-[#ef4444] px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm hover:bg-[#ef4444]/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Anular
           </button>
@@ -337,6 +354,7 @@ export default function Comanda() {
           <div className="px-4 py-3 border-b border-[#3f3f46]">
             <p className="text-white font-semibold text-sm sm:text-base">Pedido actual</p>
             <p className="text-[#71717a] text-xs">{itemsEnviados.length} enviado(s) · {carrito.length} en carrito</p>
+            {motivoNoAnular && <p className="text-[#f59e0b] text-xs mt-1">Anular no disponible: {motivoNoAnular}</p>}
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
@@ -404,8 +422,10 @@ export default function Comanda() {
                             {/* Botón eliminar — touch target adecuado */}
                             <button
                               onClick={() => eliminarItemEnviado(item)}
-                              className="w-7 h-7 rounded-lg bg-[#3f3f46]/50 hover:bg-[#ef4444]/20 text-[#52525b] hover:text-[#ef4444] transition-colors flex items-center justify-center text-xs"
-                              title="Quitar del pedido"
+                              disabled={!!motivoNoQuitar(item)}
+                              className="w-7 h-7 rounded-lg bg-[#3f3f46]/50 hover:bg-[#ef4444]/20 text-[#52525b] hover:text-[#ef4444] transition-colors flex items-center justify-center text-xs disabled:opacity-30 disabled:cursor-not-allowed"
+                              title={motivoNoQuitar(item) || 'Quitar del pedido'}
+                              aria-label={motivoNoQuitar(item) || 'Quitar del pedido'}
                             >
                               ✕
                             </button>
