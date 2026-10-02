@@ -13,7 +13,13 @@ def _crear_pedido_cerrado(client, auth_mozo, auth_cajero, mesa, usuario_mozo, pr
         "producto_id": producto.id, "cantidad": 2
     }, headers=auth_mozo)
 
-    client.put(f"/api/pedidos/{pedido['id']}/cerrar", headers=auth_cajero)
+    # Cerrar exige que cocina ya haya terminado: los ítems pasan a «listo».
+    detalle = client.get(f"/api/pedidos/{pedido['id']}", headers=auth_cajero).json()
+    for it in detalle["items"]:
+        client.put(f"/api/pedidos/items/{it['id']}/estado", json={"estado": "listo"}, headers=auth_cajero)
+
+    r = client.put(f"/api/pedidos/{pedido['id']}/cerrar", headers=auth_cajero)
+    assert r.status_code == 200, r.text
     return pedido
 
 
