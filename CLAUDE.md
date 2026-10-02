@@ -57,6 +57,8 @@ docker-compose up --build
 
 **DB schema**: All tables live in the `orbezo` PostgreSQL schema (set via `__table_args__ = {"schema": "orbezo"}`). No Alembic — tables are managed with `Base.metadata.create_all`.
 
+**Migraciones SQL**: `scripts/migrations/` contiene scripts manuales numerados (`001_diagnostico.sql` de solo lectura, `001_integridad.sql` en una transacción, `001_rollback.sql`). Ejecutar con `psql -v ON_ERROR_STOP=1`; antes, `pg_dump` y diagnóstico vacío. Regla: cada restricción se declara en `models.py` y en SQL (`init_db.sql` + migración) con el mismo nombre.
+
 ### Frontend (`frontend_react/src/`)
 
 - **`api/client.js`** — Axios instance. Reads `VITE_API_URL` (default `http://localhost:8000`). Interceptors inject JWT from Zustand store and redirect to `/login` on 401.

@@ -39,7 +39,8 @@ CREATE TABLE IF NOT EXISTS orbezo.salon (
     id          SERIAL PRIMARY KEY,
     nombre      VARCHAR(80) NOT NULL,
     descripcion VARCHAR,
-    activo      BOOLEAN DEFAULT true
+    activo      BOOLEAN DEFAULT true,
+    CONSTRAINT uq_salon_nombre UNIQUE (nombre)
 );
 
 INSERT INTO orbezo.salon (nombre, activo) VALUES
@@ -50,10 +51,14 @@ ON CONFLICT DO NOTHING;
 -- Mesas
 CREATE TABLE IF NOT EXISTS orbezo.mesa (
     id        SERIAL PRIMARY KEY,
-    salon_id  INTEGER,
-    numero    VARCHAR(10),
+    salon_id  INTEGER NOT NULL,
+    numero    VARCHAR(10) NOT NULL,
     capacidad INTEGER DEFAULT 4,
-    estado    VARCHAR(20) DEFAULT 'disponible'
+    estado    VARCHAR(20) NOT NULL DEFAULT 'disponible',
+    CONSTRAINT fk_mesa_salon FOREIGN KEY (salon_id) REFERENCES orbezo.salon(id) ON DELETE RESTRICT,
+    CONSTRAINT uq_mesa_salon_numero UNIQUE (salon_id, numero),
+    CONSTRAINT ck_mesa_estado CHECK (estado IN ('disponible','ocupada','reservada')),
+    CONSTRAINT ck_mesa_capacidad CHECK (capacidad > 0)
 );
 
 -- Categorías
@@ -61,7 +66,8 @@ CREATE TABLE IF NOT EXISTS orbezo.categoria (
     id          SERIAL PRIMARY KEY,
     nombre      VARCHAR(80) NOT NULL,
     descripcion VARCHAR,
-    activo      BOOLEAN NOT NULL DEFAULT true
+    activo      BOOLEAN NOT NULL DEFAULT true,
+    CONSTRAINT uq_categoria_nombre UNIQUE (nombre)
 );
 
 INSERT INTO orbezo.categoria (nombre, activo) VALUES
@@ -78,7 +84,8 @@ CREATE TABLE IF NOT EXISTS orbezo.producto (
     nombre       VARCHAR(120) NOT NULL,
     precio       NUMERIC(10,2) NOT NULL,
     disponible   BOOLEAN NOT NULL DEFAULT true,
-    afecto_igv   BOOLEAN NOT NULL DEFAULT true
+    afecto_igv   BOOLEAN NOT NULL DEFAULT true,
+    CONSTRAINT ck_producto_precio CHECK (precio >= 0)
 );
 
 -- Series de comprobantes
@@ -87,7 +94,9 @@ CREATE TABLE IF NOT EXISTS orbezo.serie_comprobante (
     tipo        VARCHAR(10) NOT NULL,
     serie       VARCHAR(4) NOT NULL,
     correlativo INTEGER NOT NULL DEFAULT 1,
-    activo      BOOLEAN NOT NULL DEFAULT true
+    activo      BOOLEAN NOT NULL DEFAULT true,
+    CONSTRAINT uq_serie_tipo_serie UNIQUE (tipo, serie),
+    CONSTRAINT ck_serie_tipo CHECK (tipo IN ('boleta','factura'))
 );
 
 INSERT INTO orbezo.serie_comprobante (tipo, serie, correlativo, activo) VALUES
@@ -105,8 +114,15 @@ CREATE TABLE IF NOT EXISTS orbezo.pedido (
     subtotal   NUMERIC(10,2) DEFAULT 0,
     igv        NUMERIC(10,2) DEFAULT 0,
     total      NUMERIC(10,2) DEFAULT 0,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT ck_pedido_estado CHECK (estado IN ('abierto','cerrado','anulado')),
+    CONSTRAINT ck_pedido_tipo CHECK (tipo IN ('en_mesa','para_llevar','delivery')),
+    CONSTRAINT ck_pedido_montos CHECK (subtotal >= 0 AND igv >= 0 AND total >= 0)
 );
+
+-- Un solo pedido abierto por mesa
+CREATE UNIQUE INDEX IF NOT EXISTS uq_pedido_abierto_por_mesa
+    ON orbezo.pedido (mesa_id) WHERE estado = 'abierto';
 
 -- Items de pedido
 CREATE TABLE IF NOT EXISTS orbezo.pedido_item (
@@ -117,7 +133,10 @@ CREATE TABLE IF NOT EXISTS orbezo.pedido_item (
     precio_unit NUMERIC(10,2) NOT NULL,
     subtotal    NUMERIC(10,2) NOT NULL,
     estado      VARCHAR(20) DEFAULT 'pendiente',
-    nota        VARCHAR
+    nota        VARCHAR,
+    CONSTRAINT ck_pedido_item_estado CHECK (estado IN ('pendiente','en_preparacion','listo','entregado','cancelado')),
+    CONSTRAINT ck_pedido_item_cantidad CHECK (cantidad > 0),
+    CONSTRAINT ck_pedido_item_montos CHECK (precio_unit >= 0 AND subtotal >= 0)
 );
 
 -- Comprobantes
@@ -141,7 +160,12 @@ CREATE TABLE IF NOT EXISTS orbezo.comprobante (
     descuento         NUMERIC(10,2) DEFAULT 0,
     total             NUMERIC(10,2) NOT NULL,
     estado_sunat      VARCHAR(20) DEFAULT 'pendiente',
-    created_at        TIMESTAMPTZ DEFAULT NOW()
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT ck_comprobante_tipo CHECK (tipo IN ('boleta','factura')),
+    CONSTRAINT ck_comprobante_metodo_pago CHECK (metodo_pago IN ('efectivo','tarjeta','yape','plin')),
+    CONSTRAINT uq_comprobante_serie_correlativo UNIQUE (serie, correlativo),
+    CONSTRAINT uq_comprobante_pedido UNIQUE (pedido_id),
+    CONSTRAINT ck_comprobante_montos CHECK (subtotal >= 0 AND igv >= 0 AND descuento >= 0 AND total >= 0 AND monto_pagado >= 0 AND vuelto >= 0)
 );
 
 -- Items de comprobante
@@ -152,5 +176,6 @@ CREATE TABLE IF NOT EXISTS orbezo.comprobante_item (
     cantidad       NUMERIC(10,3) NOT NULL,
     precio_unit    NUMERIC(10,4) NOT NULL,
     subtotal       NUMERIC(10,2) NOT NULL,
-    igv_item       NUMERIC(10,2) NOT NULL DEFAULT 0
+    igv_item       NUMERIC(10,2) NOT NULL DEFAULT 0,
+    CONSTRAINT ck_comprobante_item_cantidad CHECK (cantidad > 0)
 );
