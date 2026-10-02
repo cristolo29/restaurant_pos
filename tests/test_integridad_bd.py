@@ -147,3 +147,36 @@ def test_segundo_comprobante_via_api_sigue_siendo_400(client, auth_cajero, db, b
     r2 = client.post("/api/comprobantes", json=payload, headers=auth_cajero)
     assert r2.status_code == 400
     assert "Ya existe el comprobante" in r2.json()["detail"]
+
+
+# ── Rangos numéricos ──────────────────────────────────────────────────────────
+
+CASOS_RANGOS = [
+    (lambda b: models.Producto(categoria_id=b.producto.categoria_id, nombre="X", precio=-1), "ck_producto_precio"),
+    (lambda b: models.Mesa(salon_id=b.mesa.salon_id, numero="98", capacidad=0), "ck_mesa_capacidad"),
+    (lambda b: b.item(cantidad=0), "ck_pedido_item_cantidad"),
+    (lambda b: b.item(cantidad=-3), "ck_pedido_item_cantidad"),
+    (lambda b: b.item(precio_unit=-1), "ck_pedido_item_montos"),
+    (lambda b: models.Pedido(mesa_id=b.mesa.id, usuario_id=b.usuario.id, estado="cerrado", total=-1), "ck_pedido_montos"),
+    (lambda b: b.comprobante(vuelto=-1), "ck_comprobante_montos"),
+]
+
+
+@pytest.mark.parametrize("construir,esperado", CASOS_RANGOS,
+                         ids=[f"{c[1]}-{i}" for i, c in enumerate(CASOS_RANGOS)])
+def test_rango_invalido(db, base, construir, esperado):
+    assert nombre_violacion(db, construir(base)) == esperado
+
+
+def test_comprobante_item_cantidad_cero(db, base):
+    comp = base.comprobante()
+    db.add(comp)
+    db.commit()
+    item = models.ComprobanteItem(comprobante_id=comp.id, descripcion="x", cantidad=0,
+                                  precio_unit=1, subtotal=0)
+    assert nombre_violacion(db, item) == "ck_comprobante_item_cantidad"
+
+
+def test_precio_cero_es_valido(db, base):
+    db.add(models.Producto(categoria_id=base.producto.categoria_id, nombre="Cortesía", precio=0))
+    db.commit()

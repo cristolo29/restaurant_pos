@@ -50,7 +50,10 @@ class Categoria(Base):
 
 class Producto(Base):
     __tablename__ = "producto"
-    __table_args__ = {"schema": "orbezo"}
+    __table_args__ = (
+        CheckConstraint("precio >= 0", name="ck_producto_precio"),
+        {"schema": "orbezo"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     categoria_id = Column(Integer, ForeignKey("orbezo.categoria.id"), nullable=False)
@@ -80,6 +83,7 @@ class Mesa(Base):
     __table_args__ = (
         UniqueConstraint("salon_id", "numero", name="uq_mesa_salon_numero"),
         CheckConstraint("estado IN ('disponible','ocupada','reservada')", name="ck_mesa_estado"),
+        CheckConstraint("capacidad > 0", name="ck_mesa_capacidad"),
         {"schema": "orbezo"},
     )
 
@@ -98,6 +102,7 @@ class Pedido(Base):
         CheckConstraint("estado IN ('abierto','cerrado','anulado')", name="ck_pedido_estado"),
         CheckConstraint("tipo IN ('en_mesa','para_llevar','delivery')", name="ck_pedido_tipo"),
         Index("uq_pedido_abierto_por_mesa", "mesa_id", unique=True, postgresql_where=text("estado = 'abierto'")),
+        CheckConstraint("subtotal >= 0 AND igv >= 0 AND total >= 0", name="ck_pedido_montos"),
         {"schema": "orbezo"},
     )
 
@@ -137,6 +142,7 @@ class Comprobante(Base):
         CheckConstraint("metodo_pago IN ('efectivo','tarjeta','yape','plin')", name="ck_comprobante_metodo_pago"),
         UniqueConstraint("serie", "correlativo", name="uq_comprobante_serie_correlativo"),
         UniqueConstraint("pedido_id", name="uq_comprobante_pedido"),
+        CheckConstraint("subtotal >= 0 AND igv >= 0 AND descuento >= 0 AND total >= 0 AND monto_pagado >= 0 AND vuelto >= 0", name="ck_comprobante_montos"),
         {"schema": "orbezo"},
     )
 
@@ -170,7 +176,10 @@ class Comprobante(Base):
 
 class ComprobanteItem(Base):
     __tablename__ = "comprobante_item"
-    __table_args__ = {"schema": "orbezo"}
+    __table_args__ = (
+        CheckConstraint("cantidad > 0", name="ck_comprobante_item_cantidad"),
+        {"schema": "orbezo"},
+    )
 
     id              = Column(Integer, primary_key=True, index=True)
     comprobante_id  = Column(Integer, ForeignKey("orbezo.comprobante.id"), nullable=False)
@@ -187,6 +196,8 @@ class PedidoItem(Base):
     __tablename__ = "pedido_item"
     __table_args__ = (
         CheckConstraint("estado IN ('pendiente','en_preparacion','listo','entregado','cancelado')", name="ck_pedido_item_estado"),
+        CheckConstraint("cantidad > 0", name="ck_pedido_item_cantidad"),
+        CheckConstraint("precio_unit >= 0 AND subtotal >= 0", name="ck_pedido_item_montos"),
         {"schema": "orbezo"},
     )
 
