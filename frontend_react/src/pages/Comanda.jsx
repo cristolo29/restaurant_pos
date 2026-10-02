@@ -105,6 +105,15 @@ export default function Comanda() {
       setCarrito([])
       const data = await getPedido(pedidoActual.id)
       setPedido(data)
+    } catch (e) {
+      const detail = e.response?.data?.detail
+      setModal({
+        titulo: 'No se pudo enviar el pedido',
+        mensaje: typeof detail === 'string' ? detail : 'Ocurrió un error inesperado.',
+        labelConfirm: 'Entendido',
+        colorConfirm: 'danger',
+        onConfirm: () => navigate('/mesas'),
+      })
     } finally {
       setEnviando(false)
     }
