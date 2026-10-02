@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas
+from app.pinhash import verify_pin
 from app.ratelimit import login_limiter
 from app.security import create_access_token, require_roles
 
@@ -27,10 +28,16 @@ def login_con_pin(request: Request, login_data: schemas.LoginPIN, db: Session = 
             detail="Demasiados intentos fallidos. Intenta de nuevo más tarde.",
             headers={"Retry-After": str(espera)},
         )
-    usuario = db.query(models.Usuario).filter(
-        models.Usuario.pin == login_data.pin,
+    # El login no envía usuario: se verifica contra todos los activos con PIN, sin cortar
+    # al primer acierto, para que el tiempo no revele cuántos usuarios hay ni cuál coincidió.
+    candidatos = db.query(models.Usuario).filter(
         models.Usuario.activo == True,
-    ).first()
+        models.Usuario.pin.isnot(None),
+    ).all()
+    usuario = None
+    for c in candidatos:
+        if verify_pin(login_data.pin, c.pin) and usuario is None:
+            usuario = c
 
     if not usuario:
         login_limiter.registrar_fallo(ip)

@@ -24,13 +24,16 @@ CREATE TABLE IF NOT EXISTS orbezo.usuario (
     nombre        VARCHAR(100) NOT NULL,
     email         VARCHAR(150) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    pin           VARCHAR(6),
+    pin           VARCHAR(255),  -- hash scrypt (app/pinhash.py); nunca el PIN en claro
     activo        BOOLEAN NOT NULL DEFAULT true
 );
 
--- Usuario admin por defecto (PIN: 0000)
+-- Usuario admin semilla: se crea SIN PIN (nadie puede entrar hasta asignarlo; no hay PIN por defecto).
+-- Para habilitarlo genera el hash (el PIN no es reversible) y actualízalo:
+--   python -m app.pinhash 1234          -- imprime scrypt$16384$8$1$...
+--   UPDATE orbezo.usuario SET pin = '<hash>' WHERE email = 'admin@orbezo.com';
 INSERT INTO orbezo.usuario (rol_id, nombre, email, password_hash, pin, activo)
-SELECT r.id, 'Administrador', 'admin@orbezo.com', 'sin_password', '0000', true
+SELECT r.id, 'Administrador', 'admin@orbezo.com', 'sin_password', NULL, true
 FROM orbezo.rol r WHERE r.nombre = 'admin'
 ON CONFLICT (email) DO NOTHING;
 

@@ -51,7 +51,7 @@ docker-compose up --build
 - **`security.py`** — JWT creation/validation (`python-jose`, HS256, 12h expiry), `get_current_user` dependency, `require_roles(*roles)` factory
 - **`routers/`** — One file per domain: `auth`, `categorias`, `productos`, `mesas`, `pedidos`, `comprobantes`, `usuarios`, `salones`, `dashboard`. All prefixed with `/api`
 
-**Auth flow**: PIN-based login (`POST /api/login`) returns a JWT. No password hashing — authentication is PIN only.
+**Auth flow**: PIN-based login (`POST /api/login`) returns a JWT. PIN-only login (no username): the PIN is stored as a salted scrypt hash (`app/pinhash.py`, never returned by the API) and login verifies it against all active users. The hash is not reversible: rolling back migration 002 requires restoring the pre-migration `pg_dump` or reassigning PINs. Generate a hash with `python -m app.pinhash <PIN>`.
 
 **Roles**: `admin`, `mozo`, `cajero`, `cocinero`. Protected routes use `Depends(require_roles("admin", "cajero"))`.
 

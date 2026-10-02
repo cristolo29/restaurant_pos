@@ -27,7 +27,7 @@ class Usuario(Base):
     rol_id = Column(Integer, ForeignKey("orbezo.rol.id"), nullable=False)
     nombre = Column(String(100), nullable=False)
     email = Column(String(150), unique=True, nullable=False, index=True)
-    pin = Column(String(6))
+    pin = Column(String(255))  # hash scrypt (app/pinhash.py), nunca el PIN en claro
     activo = Column(Boolean, nullable=False, default=True)
 
     rol = relationship("Rol", back_populates="usuarios")
