@@ -130,3 +130,28 @@ def test_correlativo_avanza(client, auth_cajero, auth_mozo, mesa, usuario_mozo, 
         "metodo_pago": "yape", "monto_pagado": 56.0, "vuelto": 0,
     }, headers=auth_cajero)
     assert r.json()["numero"] == "B001-000002"
+
+
+def test_listar_comprobantes_incluye_descuento_e_items(client, auth_admin, db, mesa, usuario_mozo, serie_boleta):
+    pedido = models.Pedido(mesa_id=mesa.id, usuario_id=usuario_mozo.id, estado="cerrado")
+    db.add(pedido); db.flush()
+    comp = models.Comprobante(
+        pedido_id=pedido.id, usuario_id=usuario_mozo.id, serie_id=serie_boleta.id,
+        tipo="boleta", serie="B001", correlativo=1, subtotal=47.46, igv=8.54,
+        descuento=5, total=56, metodo_pago="efectivo", monto_pagado=60, vuelto=4,
+    )
+    db.add(comp); db.flush()
+    db.add(models.ComprobanteItem(
+        comprobante_id=comp.id, descripcion="Lomo saltado", cantidad=2,
+        precio_unit=28, subtotal=56, igv_item=8.54,
+    ))
+    db.commit()
+
+    r = client.get("/api/comprobantes", headers=auth_admin)
+    assert r.status_code == 200
+    data = r.json()[0]
+    assert data["descuento"] == pytest.approx(5.0)
+    assert data["items"][0]["precio_unit"] == pytest.approx(28.0)
+
+    r = client.get(f"/api/comprobantes/{comp.id}", headers=auth_admin)
+    assert r.json()["descuento"] == pytest.approx(5.0)

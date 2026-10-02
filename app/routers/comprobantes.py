@@ -25,6 +25,7 @@ def _serializar(comp: models.Comprobante) -> dict:
         "direccion_cliente": comp.direccion_cliente,
         "subtotal":          float(comp.subtotal),
         "igv":               float(comp.igv),
+        "descuento":         float(comp.descuento or 0),
         "total":             float(comp.total),
         "estado_sunat":      comp.estado_sunat,
         "created_at":        comp.created_at.strftime("%d/%m/%Y %H:%M") if comp.created_at else None,

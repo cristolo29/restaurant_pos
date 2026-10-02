@@ -174,6 +174,7 @@ class ComprobanteResponse(BaseModel):
     direccion_cliente: Optional[str]
     subtotal:          float
     igv:               float
+    descuento:         float = 0
     total:             float
     estado_sunat:      str
     created_at:        Optional[str] = None
