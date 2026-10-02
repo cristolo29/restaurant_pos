@@ -13,6 +13,13 @@ CENTAVO = Decimal("0.01")
 IGV_TASA = Decimal("0.18")
 FACTOR_IGV = Decimal("1.18")
 METODOS_EXACTOS = ("tarjeta", "yape", "plin")
+# Denominaciones válidas del conteo de caja: billetes y monedas peruanas estándar (de mayor a menor).
+DENOMINACIONES = tuple(Decimal(d) for d in ("200", "100", "50", "20", "10", "5", "2", "1", "0.50", "0.20", "0.10"))
+
+
+def clave_denominacion(valor: Decimal) -> str:
+    """Forma canónica de la clave en el JSON del conteo: '200', '5', '0.50'."""
+    return f"{valor:.2f}" if valor < 1 else str(valor.quantize(Decimal(1)))
 
 
 def a_decimal(valor) -> Decimal:

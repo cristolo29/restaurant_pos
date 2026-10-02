@@ -4,7 +4,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from app.cobro import CENTAVO, caja_abierta_de, redondear
+from app.cobro import CENTAVO, DENOMINACIONES, caja_abierta_de, clave_denominacion, redondear
 from app.database import get_db
 from app import models, schemas
 from app.security import require_roles
@@ -53,6 +53,32 @@ def _esperado(caja: models.Caja, por_metodo, movs) -> Decimal:
     )
 
 
+def _normalizar_conteo(conteo: dict, contado: Decimal) -> dict:
+    """Valida denominaciones y cantidades; la suma (Decimal) debe ser igual al monto contado. Devuelve el
+    conteo con claves canónicas ('0.50', no '0.5')."""
+    normal: dict = {}
+    total = Decimal("0.00")
+    for clave, cantidad in conteo.items():
+        try:
+            valor = Decimal(clave.strip())
+            valida = valor in DENOMINACIONES
+        except Exception:  # 'abc', 'sNaN', etc.
+            valida = False
+        if not valida:
+            raise HTTPException(status_code=422, detail=f"Denominación no válida en el conteo: {clave[:12]!r}")
+        canon = clave_denominacion(valor)
+        if canon in normal:
+            raise HTTPException(status_code=422, detail=f"La denominación {canon} está repetida en el conteo")
+        normal[canon] = cantidad
+        total += valor * cantidad
+    if total != contado:
+        raise HTTPException(
+            status_code=422,
+            detail=f"El conteo por denominaciones (S/ {total}) no coincide con el monto contado (S/ {contado})",
+        )
+    return normal
+
+
 def _serializar_movimiento(m: models.CajaMovimiento) -> dict:
     return {
         "id": m.id,
@@ -89,6 +115,7 @@ def serializar_caja(db: Session, caja: models.Caja) -> dict:
         "monto_contado": _num(caja.monto_contado),
         "diferencia": _num(caja.diferencia),
         "observaciones": caja.observaciones,
+        "conteo": caja.conteo,
         "cerrada_por": caja.cerrada_por,
         "pedidos_abiertos": pedidos_abiertos,
         "advertencia": (
@@ -127,6 +154,7 @@ def cerrar_caja(datos: schemas.CajaCerrar, db: Session = Depends(get_db), user: 
     _, por_metodo, _ = _totales(db, caja.id)
     esperado = _esperado(caja, por_metodo, _totales_movimientos(db, caja.id))
     contado = redondear(datos.monto_contado)
+    conteo = _normalizar_conteo(datos.conteo, contado) if datos.conteo is not None else None
     diferencia = (contado - esperado).quantize(CENTAVO)
     observaciones = (datos.observaciones or "").strip()
     if diferencia != 0 and len(observaciones) < 3:
@@ -139,6 +167,7 @@ def cerrar_caja(datos: schemas.CajaCerrar, db: Session = Depends(get_db), user: 
     caja.cerrada_at = datetime.now(timezone.utc)
     caja.cerrada_por = user.id
     caja.monto_contado = contado
+    caja.conteo = conteo
     caja.monto_esperado = esperado
     caja.diferencia = diferencia
     caja.observaciones = observaciones or None

@@ -165,6 +165,7 @@ CREATE TABLE IF NOT EXISTS orbezo.caja (
     diferencia     NUMERIC(10,2),
     observaciones  VARCHAR(500),
     cerrada_por    INTEGER,
+    conteo         JSONB,
     CONSTRAINT fk_caja_usuario FOREIGN KEY (usuario_id) REFERENCES orbezo.usuario(id),
     CONSTRAINT fk_caja_cerrada_por FOREIGN KEY (cerrada_por) REFERENCES orbezo.usuario(id),
     CONSTRAINT ck_caja_estado CHECK (estado IN ('abierta','cerrada')),

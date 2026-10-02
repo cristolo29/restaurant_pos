@@ -240,6 +240,8 @@ class CajaAbrir(BaseModel):
 class CajaCerrar(BaseModel):
     monto_contado: Decimal = Field(ge=0, le=Decimal("9999999.99"), max_digits=10, decimal_places=2)
     observaciones: Optional[str] = Field(default=None, max_length=500)
+    # Cantidad de billetes/monedas por denominación; el servidor verifica que sume monto_contado.
+    conteo: Optional[dict[str, Annotated[int, Field(strict=True, ge=0, le=100000)]]] = None
 
 
 class CajaMovimientoCrear(BaseModel):

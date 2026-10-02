@@ -168,6 +168,7 @@ class Caja(Base):
     diferencia     = Column(Numeric(10, 2))   # contado - esperado
     observaciones  = Column(String(500))
     cerrada_por    = Column(Integer, ForeignKey("orbezo.usuario.id", name="fk_caja_cerrada_por"))
+    conteo         = Column(JSONB)            # {"200": 0, "0.10": 3, ...}: cantidad por denominación (opcional)
 
     usuario = relationship("Usuario", foreign_keys=[usuario_id])
     movimientos = relationship("CajaMovimiento", back_populates="caja", order_by="CajaMovimiento.id")
