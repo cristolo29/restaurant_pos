@@ -8,8 +8,8 @@ RUN npm ci --silent
 
 COPY . .
 
-# La URL del backend se inyecta en build time
-ARG VITE_API_URL=http://localhost:8000
+# Vacío = mismo origen (nginx hace proxy de /api al backend)
+ARG VITE_API_URL=
 ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build

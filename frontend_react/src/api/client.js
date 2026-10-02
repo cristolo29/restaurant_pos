@@ -3,7 +3,7 @@ import useAuth from '../store/useAuth'
 import useConexion from '../store/useConexion'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000',
 })
 
 // Inyectar token en cada request

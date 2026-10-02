@@ -21,4 +21,6 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Detrás de nginx: confiar en X-Forwarded-For para obtener la IP real del cliente.
+# Seguro solo porque el puerto 8000 no se publica y nginx sobrescribe la cabecera.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]

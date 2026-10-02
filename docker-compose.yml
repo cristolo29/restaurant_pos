@@ -26,9 +26,9 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       SECRET_KEY:   ${SECRET_KEY}
-      CORS_ORIGINS: ${CORS_ORIGINS}
-    ports:
-      - "8000:8000"
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+    expose:
+      - "8000"
     depends_on:
       db:
         condition: service_healthy
@@ -39,7 +39,7 @@ services:
       context: ./frontend_react
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL}
+        VITE_API_URL: ${VITE_API_URL:-}
     restart: unless-stopped
     ports:
       - "80:80"
