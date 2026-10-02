@@ -97,6 +97,7 @@ class Pedido(Base):
     __table_args__ = (
         CheckConstraint("estado IN ('abierto','cerrado','anulado')", name="ck_pedido_estado"),
         CheckConstraint("tipo IN ('en_mesa','para_llevar','delivery')", name="ck_pedido_tipo"),
+        Index("uq_pedido_abierto_por_mesa", "mesa_id", unique=True, postgresql_where=text("estado = 'abierto'")),
         {"schema": "orbezo"},
     )
 
@@ -134,6 +135,8 @@ class Comprobante(Base):
     __table_args__ = (
         CheckConstraint("tipo IN ('boleta','factura')", name="ck_comprobante_tipo"),
         CheckConstraint("metodo_pago IN ('efectivo','tarjeta','yape','plin')", name="ck_comprobante_metodo_pago"),
+        UniqueConstraint("serie", "correlativo", name="uq_comprobante_serie_correlativo"),
+        UniqueConstraint("pedido_id", name="uq_comprobante_pedido"),
         {"schema": "orbezo"},
     )
 

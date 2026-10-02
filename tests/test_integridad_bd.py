@@ -104,3 +104,46 @@ def test_estado_o_tipo_invalido(db, base, construir, esperado):
 def test_mesa_estado_reservada_es_valido(db, mesa):
     db.add(models.Mesa(salon_id=mesa.salon_id, numero="77", estado="reservada"))
     db.commit()
+
+
+# ── Numeración fiscal y un pedido abierto por mesa ────────────────────────────
+
+def test_correlativo_repetido(db, base):
+    db.add(base.comprobante())
+    db.commit()
+    otro = models.Pedido(mesa_id=base.mesa.id, usuario_id=base.usuario.id, estado="cerrado")
+    db.add(otro)
+    db.commit()
+    assert nombre_violacion(db, base.comprobante(pedido_id=otro.id)) == "uq_comprobante_serie_correlativo"
+
+
+def test_dos_comprobantes_mismo_pedido(db, base):
+    db.add(base.comprobante())
+    db.commit()
+    assert nombre_violacion(db, base.comprobante(correlativo=2)) == "uq_comprobante_pedido"
+
+
+def test_segundo_pedido_abierto_en_la_misma_mesa(db, mesa, usuario_mozo):
+    db.add(models.Pedido(mesa_id=mesa.id, usuario_id=usuario_mozo.id, estado="abierto"))
+    db.commit()
+    otro = models.Pedido(mesa_id=mesa.id, usuario_id=usuario_mozo.id, estado="abierto")
+    assert nombre_violacion(db, otro) == "uq_pedido_abierto_por_mesa"
+
+
+def test_pedido_nuevo_tras_cerrar_o_anular(db, mesa, usuario_mozo):
+    for estado in ("cerrado", "anulado"):
+        db.add(models.Pedido(mesa_id=mesa.id, usuario_id=usuario_mozo.id, estado=estado))
+    db.commit()
+    db.add(models.Pedido(mesa_id=mesa.id, usuario_id=usuario_mozo.id, estado="abierto"))
+    db.commit()
+
+
+def test_segundo_comprobante_via_api_sigue_siendo_400(client, auth_cajero, db, base):
+    """La validación de la app va antes que la restricción: 400, no 409 ni 500."""
+    payload = {"pedido_id": base.pedido.id, "tipo": "boleta", "metodo_pago": "efectivo",
+               "monto_pagado": 20.0, "vuelto": 0}
+    r1 = client.post("/api/comprobantes", json=payload, headers=auth_cajero)
+    assert r1.status_code == 200, r1.text
+    r2 = client.post("/api/comprobantes", json=payload, headers=auth_cajero)
+    assert r2.status_code == 400
+    assert "Ya existe el comprobante" in r2.json()["detail"]
