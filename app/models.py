@@ -1,4 +1,7 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, text, Numeric, func
+from sqlalchemy import (
+    Column, Integer, String, Boolean, DateTime, ForeignKey, text, Numeric, func,
+    UniqueConstraint, CheckConstraint, Index,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -32,7 +35,10 @@ class Usuario(Base):
 
 class Categoria(Base):
     __tablename__ = "categoria"
-    __table_args__ = {"schema": "orbezo"}
+    __table_args__ = (
+        UniqueConstraint("nombre", name="uq_categoria_nombre"),
+        {"schema": "orbezo"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(80), nullable=False)
@@ -58,7 +64,10 @@ class Producto(Base):
 
 class Salon(Base):
     __tablename__ = "salon"
-    __table_args__ = {"schema": "orbezo"}
+    __table_args__ = (
+        UniqueConstraint("nombre", name="uq_salon_nombre"),
+        {"schema": "orbezo"},
+    )
 
     id          = Column(Integer, primary_key=True, index=True)
     nombre      = Column(String(80), nullable=False)
@@ -68,13 +77,16 @@ class Salon(Base):
 
 class Mesa(Base):
     __tablename__ = "mesa"
-    __table_args__ = {"schema": "orbezo"}
+    __table_args__ = (
+        UniqueConstraint("salon_id", "numero", name="uq_mesa_salon_numero"),
+        {"schema": "orbezo"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    salon_id = Column(Integer, nullable=True)
-    numero = Column(String(10), nullable=True)
+    salon_id = Column(Integer, ForeignKey("orbezo.salon.id", ondelete="RESTRICT", name="fk_mesa_salon"), nullable=False)
+    numero = Column(String(10), nullable=False)
     capacidad = Column(Integer, default=4)
-    estado = Column(String(20), default="disponible")
+    estado = Column(String(20), nullable=False, default="disponible")
 
     pedidos = relationship("Pedido", back_populates="mesa")
 
@@ -99,7 +111,10 @@ class Pedido(Base):
 
 class SerieComprobante(Base):
     __tablename__ = "serie_comprobante"
-    __table_args__ = {"schema": "orbezo"}
+    __table_args__ = (
+        UniqueConstraint("tipo", "serie", name="uq_serie_tipo_serie"),
+        {"schema": "orbezo"},
+    )
 
     id          = Column(Integer, primary_key=True, index=True)
     tipo        = Column(String(10), nullable=False)
