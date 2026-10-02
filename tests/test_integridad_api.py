@@ -96,3 +96,13 @@ def test_restriccion_desconocida_devuelve_mensaje_generico():
     resp = asyncio.run(manejar_integrity_error(None, IntegrityError("x", {}, orig)))
     assert resp.status_code == 409
     assert b"viola una regla de integridad" in resp.body
+
+
+def test_nombres_antiguos_de_bases_migradas_tambien_tienen_mensaje():
+    """Una base migrada conserva las restricciones sin nombre explícito; Postgres puede reportar esas."""
+    for antiguo, nuevo in {
+        "mesa_salon_id_numero_key": "uq_mesa_salon_numero",
+        "mesa_salon_id_fkey": "fk_mesa_salon",
+        "comprobante_serie_correlativo_key": "uq_comprobante_serie_correlativo",
+    }.items():
+        assert MENSAJES[antiguo] == MENSAJES[nuevo]

@@ -14,6 +14,11 @@ MENSAJES = {
     "uq_comprobante_serie_correlativo": "El correlativo ya fue emitido; reintenta",
 }
 
+# Bases migradas conservan las restricciones sin nombre explícito y Postgres puede reportar esas primero.
+MENSAJES["mesa_salon_id_numero_key"] = MENSAJES["uq_mesa_salon_numero"]
+MENSAJES["mesa_salon_id_fkey"] = MENSAJES["fk_mesa_salon"]
+MENSAJES["comprobante_serie_correlativo_key"] = MENSAJES["uq_comprobante_serie_correlativo"]
+
 
 async def manejar_integrity_error(request: Request, exc: IntegrityError) -> JSONResponse:
     nombre = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
