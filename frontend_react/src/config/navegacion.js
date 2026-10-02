@@ -1,4 +1,4 @@
-import { Armchair, ClipboardList, Banknote, ChefHat, LayoutDashboard, Receipt, Settings } from 'lucide-react'
+import { Armchair, ClipboardList, Banknote, ChefHat, LayoutDashboard, Receipt, Settings, Vault } from 'lucide-react'
 
 /**
  * Configuración única de navegación por rol.
@@ -8,6 +8,7 @@ const DESTINOS = {
   mesas:         { id: 'mesas',       label: 'Mesas',       icono: Armchair,        path: '/mesas' },
   'mis-pedidos': { id: 'mis-pedidos', label: 'Mis pedidos', icono: ClipboardList,   path: '/mis-pedidos' },
   'por-cobrar':  { id: 'por-cobrar',  label: 'Por cobrar',  icono: Banknote,        path: '/por-cobrar' },
+  caja:          { id: 'caja',        label: 'Caja',        icono: Vault,           path: '/caja' },
   comprobantes:  { id: 'comprobantes', label: 'Comprobantes', corto: 'Comprob.', icono: Receipt,       path: '/comprobantes' },
   cocina:        { id: 'cocina',      label: 'Cocina',      icono: ChefHat,         path: '/cocina' },
   dashboard:     { id: 'dashboard',   label: 'Dashboard',   icono: LayoutDashboard, path: '/dashboard' },
@@ -16,9 +17,9 @@ const DESTINOS = {
 
 const NAVEGACION = {
   mozo:     { home: '/mesas',      destinos: ['mesas', 'mis-pedidos'] },
-  cajero:   { home: '/por-cobrar', destinos: ['por-cobrar', 'mesas'] },
+  cajero:   { home: '/por-cobrar', destinos: ['por-cobrar', 'mesas', 'caja'] },
   cocinero: { home: '/cocina',     destinos: [] },
-  admin:    { home: '/dashboard',  destinos: ['dashboard', 'mesas', 'por-cobrar', 'comprobantes', 'cocina', 'admin'] },
+  admin:    { home: '/dashboard',  destinos: ['dashboard', 'mesas', 'por-cobrar', 'caja', 'comprobantes', 'cocina', 'admin'] },
 }
 
 const ROLES = { admin: 'Administrador', mozo: 'Mozo', cajero: 'Cajero', cocinero: 'Cocina' }

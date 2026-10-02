@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   ArrowLeft, Banknote, CreditCard, Smartphone, QrCode, Receipt, FileText,
-  StickyNote, Printer, CheckCircle2, AlertCircle, Store,
+  StickyNote, Printer, CheckCircle2, AlertCircle, Store, Vault,
 } from 'lucide-react'
 import { cobrarPedido } from '../api/pedidos'
+import useCaja from '../store/useCaja'
 import TicketBoleta from '../components/TicketBoleta'
 import ModalConfirm from '../components/ModalConfirm'
 import { Button, Card, PageHeader, EmptyState, cn } from '../components/ui'
@@ -71,6 +72,9 @@ export default function Cobro() {
   const [comprobante, setComprobante] = useState(null)
   const [modal, setModal] = useState(null)
   const [errorForm, setErrorForm] = useState('')
+  const caja = useCaja(s => s.caja)
+  const cajaCargada = useCaja(s => s.cargada)
+  const sinCaja = cajaCargada && !caja  // el servidor es la autoridad: esto solo evita el intento inútil
   const enVuelo = useRef(false) // evita doble cobro aunque el botón se toque dos veces antes de repintar
 
   if (!pedido) {
@@ -151,6 +155,7 @@ export default function Cobro() {
       await ejecutarCobro()
     } catch (e) {
       const detail = e.response?.data?.detail
+      if (e.response?.status === 409) useCaja.getState().cargar() // p. ej. la caja se cerró en otra pestaña
       setErrorForm(
         typeof detail === 'string' ? detail
           : e.response ? 'Revisa los datos del cobro e intenta de nuevo.'
@@ -230,6 +235,21 @@ export default function Cobro() {
           </Button>
         </div>
         <PageHeader title={`Cobro · Mesa ${mesa?.numero ?? ''}`} subtitle="Revisa la cuenta y elige cómo paga el cliente" />
+
+        {sinCaja && (
+          <div role="alert" className="mb-4 bg-warning/10 border border-warning/40 rounded-control px-4 py-3 flex items-center gap-3 flex-wrap">
+            <Vault className="size-6 text-warning shrink-0" aria-hidden="true" />
+            <p className="flex-1 min-w-48 text-warning font-semibold">
+              No tienes una caja abierta. Ábrela para poder cobrar.
+            </p>
+            <Link
+              to="/caja"
+              className="inline-flex items-center justify-center min-h-12 px-5 rounded-control bg-accent text-on-accent font-semibold hover:bg-accent-hover transition-colors"
+            >
+              Ir a Caja
+            </Link>
+          </div>
+        )}
 
         <div className="grid gap-4 lg:grid-cols-2 items-start">
           {/* Resumen del pedido */}
@@ -426,7 +446,7 @@ export default function Cobro() {
               size="lg"
               block
               loading={procesando}
-              disabled={sinItems || !!efectivoInsuficiente}
+              disabled={sinItems || !!efectivoInsuficiente || sinCaja}
               onClick={cobrar}
               className="text-lg"
             >
