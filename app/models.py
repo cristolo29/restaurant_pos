@@ -79,6 +79,7 @@ class Mesa(Base):
     __tablename__ = "mesa"
     __table_args__ = (
         UniqueConstraint("salon_id", "numero", name="uq_mesa_salon_numero"),
+        CheckConstraint("estado IN ('disponible','ocupada','reservada')", name="ck_mesa_estado"),
         {"schema": "orbezo"},
     )
 
@@ -93,7 +94,11 @@ class Mesa(Base):
 
 class Pedido(Base):
     __tablename__ = "pedido"
-    __table_args__ = {"schema": "orbezo"}
+    __table_args__ = (
+        CheckConstraint("estado IN ('abierto','cerrado','anulado')", name="ck_pedido_estado"),
+        CheckConstraint("tipo IN ('en_mesa','para_llevar','delivery')", name="ck_pedido_tipo"),
+        {"schema": "orbezo"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     mesa_id = Column(Integer, ForeignKey("orbezo.mesa.id"), nullable=False)
@@ -113,6 +118,7 @@ class SerieComprobante(Base):
     __tablename__ = "serie_comprobante"
     __table_args__ = (
         UniqueConstraint("tipo", "serie", name="uq_serie_tipo_serie"),
+        CheckConstraint("tipo IN ('boleta','factura')", name="ck_serie_tipo"),
         {"schema": "orbezo"},
     )
 
@@ -125,7 +131,11 @@ class SerieComprobante(Base):
 
 class Comprobante(Base):
     __tablename__ = "comprobante"
-    __table_args__ = {"schema": "orbezo"}
+    __table_args__ = (
+        CheckConstraint("tipo IN ('boleta','factura')", name="ck_comprobante_tipo"),
+        CheckConstraint("metodo_pago IN ('efectivo','tarjeta','yape','plin')", name="ck_comprobante_metodo_pago"),
+        {"schema": "orbezo"},
+    )
 
     id                  = Column(Integer, primary_key=True, index=True)
     pedido_id           = Column(Integer, ForeignKey("orbezo.pedido.id"), nullable=False)
@@ -172,7 +182,10 @@ class ComprobanteItem(Base):
 
 class PedidoItem(Base):
     __tablename__ = "pedido_item"
-    __table_args__ = {"schema": "orbezo"}
+    __table_args__ = (
+        CheckConstraint("estado IN ('pendiente','en_preparacion','listo','entregado','cancelado')", name="ck_pedido_item_estado"),
+        {"schema": "orbezo"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     pedido_id = Column(Integer, ForeignKey("orbezo.pedido.id"), nullable=False)

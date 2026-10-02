@@ -51,3 +51,56 @@ def test_nombre_repetido_salon_categoria_serie(db, salon, categoria):
 def test_eliminar_salon_con_mesas_devuelve_409(client, auth_admin, salon, mesa):
     r = client.delete(f"/api/salones/{salon.id}", headers=auth_admin)
     assert r.status_code == 409
+
+
+# ── Datos base para construir objetos inválidos ───────────────────────────────
+
+class Base:
+    """Agrupa filas válidas (mesa, pedido, serie, producto) para armar casos."""
+    def __init__(self, db, mesa, usuario, producto):
+        self.mesa, self.usuario, self.producto = mesa, usuario, producto
+        self.serie = models.SerieComprobante(tipo="boleta", serie="B001")
+        self.pedido = models.Pedido(mesa_id=mesa.id, usuario_id=usuario.id, estado="cerrado")
+        db.add_all([self.serie, self.pedido])
+        db.commit()
+
+    def comprobante(self, **kw):
+        datos = dict(pedido_id=self.pedido.id, usuario_id=self.usuario.id,
+                     serie_id=self.serie.id, tipo="boleta", serie="B001",
+                     correlativo=1, subtotal=10, igv=1.8, total=11.8)
+        datos.update(kw)
+        return models.Comprobante(**datos)
+
+    def item(self, **kw):
+        datos = dict(pedido_id=self.pedido.id, producto_id=self.producto.id,
+                     cantidad=1, precio_unit=10, subtotal=10)
+        datos.update(kw)
+        return models.PedidoItem(**datos)
+
+
+@pytest.fixture
+def base(db, mesa, usuario_mozo, producto):
+    return Base(db, mesa, usuario_mozo, producto)
+
+
+# ── Estados y tipos cerrados ──────────────────────────────────────────────────
+
+CASOS_ESTADOS = [
+    (lambda b: models.Mesa(salon_id=b.mesa.salon_id, numero="99", estado="ocupda"), "ck_mesa_estado"),
+    (lambda b: models.Pedido(mesa_id=b.mesa.id, usuario_id=b.usuario.id, estado="x"), "ck_pedido_estado"),
+    (lambda b: models.Pedido(mesa_id=b.mesa.id, usuario_id=b.usuario.id, tipo="x"), "ck_pedido_tipo"),
+    (lambda b: b.item(estado="x"), "ck_pedido_item_estado"),
+    (lambda b: models.SerieComprobante(tipo="x", serie="Z001"), "ck_serie_tipo"),
+    (lambda b: b.comprobante(tipo="x"), "ck_comprobante_tipo"),
+    (lambda b: b.comprobante(metodo_pago="bitcoin"), "ck_comprobante_metodo_pago"),
+]
+
+
+@pytest.mark.parametrize("construir,esperado", CASOS_ESTADOS, ids=[c[1] for c in CASOS_ESTADOS])
+def test_estado_o_tipo_invalido(db, base, construir, esperado):
+    assert nombre_violacion(db, construir(base)) == esperado
+
+
+def test_mesa_estado_reservada_es_valido(db, mesa):
+    db.add(models.Mesa(salon_id=mesa.salon_id, numero="77", estado="reservada"))
+    db.commit()
