@@ -24,7 +24,7 @@ def test_abrir_caja(client, auth_cajero, usuario_cajero):
     assert r.status_code == 200, r.text
     d = r.json()
     assert d["estado"] == "abierta" and d["monto_inicial"] == 150.5
-    assert d["usuario_id"] == usuario_cajero.id and d["monto_esperado"] == 150.5
+    assert d["usuario_id"] == usuario_cajero.id and "monto_esperado" not in d  # a ciegas (tarea 1.3)
 
 
 def test_abrir_caja_duplicada_409(client, auth_cajero):
@@ -82,12 +82,14 @@ def caja_con_ventas(client, auth_cajero, auth_mozo, mesa, producto, serie_boleta
     return caja_cajero
 
 
-def test_resumen_en_vivo_mezcla_de_metodos(client, auth_cajero, caja_con_ventas):
+def test_resumen_en_vivo_mezcla_de_metodos(client, auth_cajero, auth_admin, caja_con_ventas):
     d = client.get("/api/caja/actual", headers=auth_cajero).json()
     assert d["comprobantes"] == 3
     assert d["por_metodo"] == {"efectivo": 56.0, "tarjeta": 56.0, "yape": 28.0, "plin": 0.0}
     assert d["total_cobrado"] == 140.0
-    assert d["monto_esperado"] == 156.0  # 100 + 56 en efectivo (el vuelto no cuenta); tarjeta y yape no entran
+    assert "monto_esperado" not in d  # el cajero cuenta a ciegas
+    # el admin sí lo ve: 100 + 56 en efectivo (el vuelto no cuenta); tarjeta y yape no entran
+    assert client.get(f"/api/caja/{caja_con_ventas.id}", headers=auth_admin).json()["monto_esperado"] == 156.0
 
 
 def test_cerrar_sin_diferencia_no_exige_observaciones(client, auth_cajero, caja_con_ventas):

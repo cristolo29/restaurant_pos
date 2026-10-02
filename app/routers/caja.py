@@ -91,7 +91,16 @@ def _serializar_movimiento(m: models.CajaMovimiento) -> dict:
     }
 
 
-def serializar_caja(db: Session, caja: models.Caja) -> dict:
+def serializar_caja(db: Session, caja: models.Caja, user: models.Usuario) -> dict:
+    """Cierre a ciegas: mientras la caja está abierta, solo el admin recibe `monto_esperado`
+    (el campo ni se envía al cajero: ocultarlo solo en la interfaz no bastaría)."""
+    datos = _serializar_caja(db, caja)
+    if caja.estado == "abierta" and user.rol.nombre != "admin":
+        datos.pop("monto_esperado", None)
+    return datos
+
+
+def _serializar_caja(db: Session, caja: models.Caja) -> dict:
     cantidad, por_metodo, total = _totales(db, caja.id)
     abierta = caja.estado == "abierta"
     movs = _totales_movimientos(db, caja.id)
@@ -132,14 +141,14 @@ def abrir_caja(datos: schemas.CajaAbrir, db: Session = Depends(get_db), user: mo
     db.add(caja)
     db.commit()  # el índice único parcial cubre la carrera de dos aperturas simultáneas (409 por integridad)
     db.refresh(caja)
-    return serializar_caja(db, caja)
+    return serializar_caja(db, caja, user)
 
 
 @router.get("/actual")
 def caja_actual(db: Session = Depends(get_db), user: models.Usuario = _cajero):
     """Caja abierta del usuario con resumen en vivo, o `null` si no tiene."""
     caja = caja_abierta_de(db, user.id)
-    return serializar_caja(db, caja) if caja else None
+    return serializar_caja(db, caja, user) if caja else None
 
 
 @router.post("/cerrar")
@@ -173,7 +182,7 @@ def cerrar_caja(datos: schemas.CajaCerrar, db: Session = Depends(get_db), user: 
     caja.observaciones = observaciones or None
     db.commit()
     db.refresh(caja)
-    return serializar_caja(db, caja)
+    return serializar_caja(db, caja, user)
 
 
 @router.post("/movimientos")
@@ -203,7 +212,7 @@ def registrar_movimiento(
     ))
     db.commit()
     db.refresh(caja)
-    return serializar_caja(db, caja)
+    return serializar_caja(db, caja, user)
 
 
 @router.get("")
@@ -218,7 +227,7 @@ def listar_cajas(
     if user.rol.nombre != "admin":
         q = q.filter(models.Caja.usuario_id == user.id)
     cajas = q.order_by(models.Caja.id.desc()).offset(offset).limit(limit).all()
-    return [serializar_caja(db, c) for c in cajas]
+    return [serializar_caja(db, c, user) for c in cajas]
 
 
 @router.get("/{caja_id}")
@@ -228,4 +237,4 @@ def obtener_caja(caja_id: int, db: Session = Depends(get_db), user: models.Usuar
         raise HTTPException(status_code=404, detail="La caja no existe")
     if user.rol.nombre != "admin" and caja.usuario_id != user.id:
         raise HTTPException(status_code=403, detail="Solo puedes ver tus propias cajas")
-    return serializar_caja(db, caja)
+    return serializar_caja(db, caja, user)
