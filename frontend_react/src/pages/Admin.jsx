@@ -194,17 +194,17 @@ function TablaComprobantes({ comprobantes, expandido, setExpandido, onVerDetalle
                     <td colSpan={7} className="bg-[#1f1f22] px-4 py-4 border-t border-[#3f3f46]">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <p className="text-[#71717a] text-xs uppercase tracking-wider mb-2">Productos</p>
+                          <p className="text-[#71717a] text-sm uppercase tracking-wider mb-2">Productos</p>
                           <div className="flex flex-col gap-1">
                             {c.items.map((item, i) => (
-                              <div key={i} className="flex justify-between text-xs">
+                              <div key={i} className="flex justify-between text-sm">
                                 <span className="text-[#a1a1aa]">{Number(item.cantidad).toFixed(0)}× {item.descripcion}</span>
                                 <span className="text-white font-medium ml-4">S/ {Number(item.subtotal).toFixed(2)}</span>
                               </div>
                             ))}
                           </div>
                         </div>
-                        <div className="flex flex-col gap-1.5 text-xs">
+                        <div className="flex flex-col gap-1.5 text-sm">
                           <p className="text-[#71717a] uppercase tracking-wider mb-1">Resumen de pago</p>
                           <div className="flex justify-between">
                             <span className="text-[#71717a]">Subtotal (sin IGV)</span>
@@ -216,7 +216,7 @@ function TablaComprobantes({ comprobantes, expandido, setExpandido, onVerDetalle
                           </div>
                           <div className="flex justify-between border-t border-[#3f3f46] pt-1.5 mt-0.5">
                             <span className="text-white font-semibold">Total</span>
-                            <span className="text-[#f59e0b] font-bold">S/ {Number(c.total).toFixed(2)}</span>
+                            <span className="text-[#f59e0b] font-bold text-lg">S/ {Number(c.total).toFixed(2)}</span>
                           </div>
                           {c.metodo_pago === 'efectivo' && Number(c.monto_pagado) > 0 && (
                             <>
@@ -275,8 +275,15 @@ function ModalDetalleComprobante({ c, onCerrar }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [onCerrar])
 
+  const fila = (k, v, extra = '') => (
+    <div className={`flex justify-between gap-6 ${extra}`}>
+      <span className="text-zinc-500">{k}</span>
+      <span className="text-zinc-900 text-right">{v}</span>
+    </div>
+  )
+
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50" onClick={onCerrar}>
+    <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 sm:p-4" onClick={onCerrar}>
       <style>{`
         @media print {
           @page { margin: 8mm; }
@@ -285,10 +292,7 @@ function ModalDetalleComprobante({ c, onCerrar }) {
           #detalle-comprobante {
             position: fixed; top: 0; left: 0; width: 100%;
             max-height: none !important; overflow: visible !important;
-            border: none !important; box-shadow: none !important;
-          }
-          #detalle-comprobante, #detalle-comprobante * {
-            background: #fff !important; color: #000 !important; border-color: #999 !important;
+            border: none !important; box-shadow: none !important; border-radius: 0 !important;
           }
           .no-print { display: none !important; }
         }
@@ -299,128 +303,95 @@ function ModalDetalleComprobante({ c, onCerrar }) {
         aria-modal="true"
         aria-labelledby="detalle-comprobante-titulo"
         onClick={e => e.stopPropagation()}
-        className="bg-[#27272a] border border-[#3f3f46] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl max-h-[88vh] overflow-y-auto"
+        className="bg-white text-zinc-900 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-2xl shadow-2xl max-h-[94vh] overflow-y-auto"
       >
-
-        {/* Header sticky */}
-        <div className="flex justify-between items-center px-5 py-4 border-b border-[#3f3f46] sticky top-0 bg-[#27272a] z-10">
-          <div>
-            <p className="text-[#a1a1aa] text-xs uppercase tracking-wider">
-              {esFactura ? 'Factura electrónica' : 'Boleta de venta'}
-            </p>
-            <p id="detalle-comprobante-titulo" className="text-[#f59e0b] font-bold text-lg">{c.numero}</p>
-            <p className="text-[#71717a] text-xs">Fecha: {c.created_at || '—'}</p>
-          </div>
+        {/* Barra de acciones (no se imprime) */}
+        <div className="no-print flex justify-between items-center gap-3 px-5 py-3 border-b border-zinc-200 sticky top-0 bg-white z-10">
+          <button
+            onClick={() => window.print()}
+            className="min-h-12 px-5 rounded-xl bg-[#f59e0b] hover:bg-[#d97706] active:bg-[#b45309] text-black font-semibold text-base transition-colors"
+          >
+            Imprimir
+          </button>
           <button
             autoFocus
             onClick={onCerrar}
             aria-label="Cerrar"
-            className="no-print text-[#a1a1aa] hover:text-white text-2xl leading-none w-12 h-12 flex items-center justify-center rounded-xl hover:bg-[#3f3f46] active:bg-[#52525b] transition-colors"
+            className="text-zinc-500 hover:text-zinc-900 text-3xl leading-none w-12 h-12 flex items-center justify-center rounded-xl hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
           >×</button>
         </div>
 
-        <div className="px-5 py-4 flex flex-col gap-5">
+        <div className="px-6 sm:px-10 py-6 flex flex-col gap-6 text-base">
 
-          {/* Cliente */}
-          <div>
-            <p className="text-[#71717a] text-xs uppercase tracking-wider mb-2">Cliente</p>
-            <div className="bg-[#1f1f22] rounded-xl px-4 py-3 flex flex-col gap-2 text-sm">
-              {tieneCliente ? (
-                <>
-                  {c.nro_doc_cliente && (
-                    <div className="flex justify-between">
-                      <span className="text-[#71717a]">{esFactura ? 'RUC' : 'DNI'}</span>
-                      <span className="text-[#d4d4d8]">{c.nro_doc_cliente}</span>
-                    </div>
-                  )}
-                  {c.razon_social && (
-                    <div className="flex justify-between gap-4">
-                      <span className="text-[#71717a] shrink-0">{esFactura ? 'Razón social' : 'Nombre'}</span>
-                      <span className="text-[#d4d4d8] text-right">{c.razon_social}</span>
-                    </div>
-                  )}
-                  {c.direccion_cliente && (
-                    <div className="flex justify-between gap-4">
-                      <span className="text-[#71717a] shrink-0">Dirección</span>
-                      <span className="text-[#d4d4d8] text-right">{c.direccion_cliente}</span>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <span className="text-[#a1a1aa]">Cliente sin documento</span>
-              )}
+          {/* Encabezado: emisor + tipo y número */}
+          <div className="flex flex-col sm:flex-row sm:justify-between gap-4 sm:items-start">
+            <div>
+              <p className="text-2xl font-bold tracking-tight">Orbezo Resto Bar</p>
+              <p className="text-zinc-500 text-sm">Restaurante</p>
             </div>
+            <div className="border-2 border-zinc-900 rounded-lg px-5 py-3 text-center sm:min-w-[15rem]">
+              <p className="text-sm font-semibold uppercase tracking-wide">
+                {esFactura ? 'Factura electrónica' : 'Boleta de venta electrónica'}
+              </p>
+              <p id="detalle-comprobante-titulo" className="text-2xl font-bold tabular-nums mt-1">{c.numero}</p>
+            </div>
+          </div>
+
+          {/* Datos del comprobante y del cliente */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-2 border-y border-zinc-200 py-4">
+            {fila('Fecha de emisión', c.created_at || '—')}
+            {fila('Método de pago', METODO_LABEL[c.metodo_pago] || c.metodo_pago || '—')}
+            {tieneCliente ? (
+              <>
+                {c.nro_doc_cliente && fila(esFactura ? 'RUC' : 'DNI', c.nro_doc_cliente)}
+                {c.razon_social && fila(esFactura ? 'Razón social' : 'Cliente', c.razon_social)}
+                {c.direccion_cliente && fila('Dirección', c.direccion_cliente, 'sm:col-span-2')}
+              </>
+            ) : (
+              fila('Cliente', 'Cliente sin documento')
+            )}
           </div>
 
           {/* Ítems */}
-          <div>
-            <p className="text-[#71717a] text-xs uppercase tracking-wider mb-2">Detalle</p>
-            <div className="bg-[#1f1f22] rounded-xl overflow-hidden">
-              <table className="w-full text-sm tabular-nums">
-                <thead>
-                  <tr className="text-[#71717a] text-xs border-b border-[#3f3f46]">
-                    <th className="px-3 py-2 text-left font-medium">Cant.</th>
-                    <th className="px-2 py-2 text-left font-medium">Descripción</th>
-                    <th className="px-2 py-2 text-right font-medium">P. unit.</th>
-                    <th className="px-3 py-2 text-right font-medium">Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(c.items || []).map((item, i) => (
-                    <tr key={i} className={i > 0 ? 'border-t border-[#3f3f46]' : ''}>
-                      <td className="px-3 py-2 text-[#d4d4d8]">{Number(item.cantidad).toFixed(0)}</td>
-                      <td className="px-2 py-2 text-[#d4d4d8]">{item.descripcion}</td>
-                      <td className="px-2 py-2 text-right text-[#a1a1aa] whitespace-nowrap">{fmt(item.precio_unit)}</td>
-                      <td className="px-3 py-2 text-right text-white font-medium whitespace-nowrap">{fmt(item.subtotal)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <table className="w-full tabular-nums">
+            <thead>
+              <tr className="text-zinc-500 text-sm border-b-2 border-zinc-900">
+                <th className="py-2 pr-2 text-left font-semibold w-14">Cant.</th>
+                <th className="py-2 px-2 text-left font-semibold">Descripción</th>
+                <th className="py-2 px-2 text-right font-semibold">P. unit.</th>
+                <th className="py-2 pl-2 text-right font-semibold">Importe</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(c.items || []).map((item, i) => (
+                <tr key={i} className="border-b border-zinc-200">
+                  <td className="py-3 pr-2">{Number(item.cantidad).toFixed(0)}</td>
+                  <td className="py-3 px-2">{item.descripcion}</td>
+                  <td className="py-3 px-2 text-right whitespace-nowrap text-zinc-600">{fmt(item.precio_unit)}</td>
+                  <td className="py-3 pl-2 text-right whitespace-nowrap font-medium">{fmt(item.subtotal)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Totales (alineados a la derecha) */}
+          <div className="flex flex-col gap-2 sm:w-80 sm:ml-auto w-full tabular-nums">
+            {fila('Subtotal (sin IGV)', fmt(c.subtotal))}
+            {fila('IGV 18%', fmt(c.igv))}
+            {fila('Descuento', Number(c.descuento) > 0 ? `- ${fmt(c.descuento)}` : fmt(0))}
+            <div className="flex justify-between items-baseline gap-6 border-t-2 border-zinc-900 pt-3 mt-1">
+              <span className="text-lg font-bold uppercase">Total</span>
+              <span className="text-3xl font-bold">{fmt(c.total)}</span>
+            </div>
+            <div className="flex flex-col gap-1 border-t border-zinc-200 pt-3 mt-1 text-zinc-600">
+              {fila('Monto pagado', fmt(c.monto_pagado))}
+              {fila('Vuelto', fmt(c.vuelto))}
             </div>
           </div>
 
-          {/* Totales y pago */}
-          <div>
-            <p className="text-[#71717a] text-xs uppercase tracking-wider mb-2">Resumen de pago</p>
-            <div className="bg-[#1f1f22] rounded-xl px-4 py-3 flex flex-col gap-2 text-sm tabular-nums">
-              <div className="flex justify-between">
-                <span className="text-[#71717a]">Subtotal (sin IGV)</span>
-                <span className="text-[#d4d4d8]">{fmt(c.subtotal)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#71717a]">IGV 18%</span>
-                <span className="text-[#d4d4d8]">{fmt(c.igv)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#71717a]">Descuento</span>
-                <span className="text-[#d4d4d8]">{Number(c.descuento) > 0 ? `- ${fmt(c.descuento)}` : fmt(0)}</span>
-              </div>
-              <div className="flex justify-between border-t border-[#3f3f46] pt-2 mt-0.5">
-                <span className="text-white font-semibold">Total</span>
-                <span className="text-[#f59e0b] font-bold text-xl">{fmt(c.total)}</span>
-              </div>
-              <div className="flex justify-between border-t border-[#3f3f46] pt-2">
-                <span className="text-[#71717a]">Método de pago</span>
-                <span className="text-[#d4d4d8]">{METODO_LABEL[c.metodo_pago] || c.metodo_pago || '—'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#71717a]">Monto pagado</span>
-                <span className="text-[#d4d4d8]">{fmt(c.monto_pagado)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#71717a]">Vuelto</span>
-                <span className="text-[#d4d4d8] font-medium">{fmt(c.vuelto)}</span>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={() => window.print()}
-            className="no-print w-full min-h-12 rounded-xl bg-[#f59e0b] hover:bg-[#d97706] active:bg-[#b45309] text-black font-semibold text-base transition-colors"
-          >
-            Imprimir
-          </button>
-
+          <p className="text-center text-zinc-500 text-sm border-t border-zinc-200 pt-4">
+            Gracias por su preferencia
+          </p>
         </div>
       </div>
     </div>
