@@ -67,6 +67,8 @@ docker-compose up --build
 
 **Mesas page** polls the server every 10 seconds to refresh table states.
 
+**Design system** (frontend): colors/radii/fonts are semantic tokens in `src/index.css` (`@theme`: `bg-app`, `bg-surface`, `text-muted`, `border-line`, `bg-accent`, `text-success|warning|danger|info`…). Never write hex colors in components. Shared primitives live in `src/components/ui/` (`Button`, `Chip`, `StatusBadge`, `Card`, `Modal`, `EmptyState`, `PageHeader`, `Skeleton`, `Toaster`) — reuse them instead of repeating classes. Icons come from `lucide-react` (no emojis). Toasts: `toast.exito/error/info` from `store/useToast.js` (the `Toaster` is mounted once in `AppShell`). For UI work use the `pos-ui-ux` skill and the `pos-frontend-ui` subagent (`.claude/agents/`).
+
 **Comprobantes**: boleta or factura. `Comprobante.numero` is a computed property (`serie-XXXXXX`). IGV is 18%.
 
 ### Tests (`tests/`)

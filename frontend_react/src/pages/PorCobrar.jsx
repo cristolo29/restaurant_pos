@@ -1,22 +1,39 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Clock, ChefHat, Receipt, ChevronRight, CircleDollarSign } from 'lucide-react'
 import useMesas from '../store/useMesas'
 import { mesasPorCobrar, tiempoTranscurrido } from '../utils/mesasDerivadas'
 import { getPedido } from '../api/pedidos'
 import ModalConfirm from '../components/ModalConfirm'
+import { Card, PageHeader, EmptyState, Skeleton, StatusBadge, cn } from '../components/ui'
 
-const GRID = 'grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 sm:gap-4'
+const GRID = 'grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-3 sm:gap-4'
 
 function Datos({ mesa }) {
   const tiempo = tiempoTranscurrido(mesa.pedido_inicio)
   return (
     <>
-      <div className="text-3xl sm:text-4xl font-bold text-white mb-1.5">{mesa.numero}</div>
-      {tiempo && <div className="text-xs text-[#f59e0b] font-medium">{tiempo}</div>}
-      <div className="text-xs text-[#a1a1aa] mt-0.5">
-        S/ {Number(mesa.pedido_total).toFixed(2)}
-      </div>
+      <p className="text-ink text-lg font-bold">Mesa {mesa.numero}</p>
+      {tiempo && (
+        <p className="text-muted text-caption flex items-center gap-1 mt-0.5">
+          <Clock className="size-3.5" aria-hidden="true" /> {tiempo}
+        </p>
+      )}
+      <p className="text-ink text-2xl font-bold num mt-2">
+        S/ {Number(mesa.pedido_total ?? 0).toFixed(2)}
+      </p>
     </>
+  )
+}
+
+function Titulo({ icon, tone, count, children }) {
+  const Icon = icon
+  return (
+    <h2 className={cn('flex items-center gap-2 text-sm font-semibold uppercase tracking-wider mb-3', tone)}>
+      <Icon className="size-4" aria-hidden="true" />
+      {children}
+      <span className="num text-caption text-muted normal-case tracking-normal">({count})</span>
+    </h2>
   )
 }
 
@@ -41,6 +58,7 @@ export default function PorCobrar() {
         mensaje: e.response?.data?.detail || 'Ocurrió un error inesperado.',
         labelConfirm: 'Entendido',
         colorConfirm: 'danger',
+        soloAviso: true,
         onConfirm: () => {},
       })
     } finally {
@@ -49,34 +67,41 @@ export default function PorCobrar() {
   }
 
   return (
-    <div className="min-h-screen bg-[#18181b] text-white flex flex-col">
+    <div className="min-h-screen bg-app text-ink flex flex-col">
       <main className="p-4 sm:p-6 flex-1">
-        <h2 className="text-xl sm:text-2xl font-bold text-white mb-5 sm:mb-8">Por cobrar</h2>
+        <PageHeader title="Por cobrar" subtitle="Toca una mesa lista para abrir su cuenta" />
 
         {cargando && mesas.length === 0 ? (
-          <div className="flex items-center justify-center py-24">
-            <div className="text-[#52525b] text-sm">Cargando...</div>
+          <div className={GRID} aria-busy="true" aria-label="Cargando mesas">
+            {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-36 rounded-panel" />)}
           </div>
         ) : listas.length === 0 && enCocina.length === 0 ? (
-          <div className="flex items-center justify-center py-24">
-            <p className="text-[#52525b] text-sm">No hay mesas por cobrar</p>
-          </div>
+          <EmptyState
+            icon={CircleDollarSign}
+            title="No hay mesas por cobrar"
+            description="Cuando una mesa tenga todo servido aparecerá aquí."
+          />
         ) : (
           <div className="space-y-8">
             {listas.length > 0 && (
-              <section>
-                <h3 className="text-[#22c55e] text-sm font-semibold uppercase tracking-widest mb-3">
-                  Listas para cobrar
-                </h3>
+              <section aria-label="Listas para cobrar">
+                <Titulo icon={Receipt} tone="text-success" count={listas.length}>Listas para cobrar</Titulo>
                 <div className={GRID}>
                   {listas.map(mesa => (
                     <button
                       key={mesa.id}
+                      type="button"
                       onClick={() => abrirCobro(mesa)}
                       disabled={!!abriendo}
-                      className="bg-[#27272a] rounded-2xl p-4 sm:p-6 text-center border border-[#3f3f46] hover:border-[#22c55e]/50 hover:shadow-lg hover:shadow-[#22c55e]/10 transition-all duration-200 active:scale-95 disabled:cursor-wait disabled:opacity-60"
+                      aria-busy={abriendo === mesa.id || undefined}
+                      className="bg-surface rounded-panel p-4 text-left border border-line hover:border-success/60 transition-colors active:scale-[0.98] disabled:cursor-wait disabled:opacity-60 flex flex-col"
                     >
+                      <StatusBadge tone="success" icon={Receipt} className="self-start mb-2">Lista para cobrar</StatusBadge>
                       <Datos mesa={mesa} />
+                      <span className="mt-3 pt-3 border-t border-line flex items-center justify-between text-success font-semibold">
+                        {abriendo === mesa.id ? 'Abriendo...' : 'Cobrar'}
+                        <ChevronRight className="size-5" aria-hidden="true" />
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -84,21 +109,19 @@ export default function PorCobrar() {
             )}
 
             {enCocina.length > 0 && (
-              <section>
-                <h3 className="text-[#f59e0b] text-sm font-semibold uppercase tracking-widest mb-3">
-                  En cocina
-                </h3>
+              <section aria-label="En cocina">
+                <Titulo icon={ChefHat} tone="text-warning" count={enCocina.length}>En cocina</Titulo>
                 <div className={GRID}>
                   {enCocina.map(mesa => (
-                    <div
-                      key={mesa.id}
-                      className="bg-[#27272a] rounded-2xl p-4 sm:p-6 text-center border border-[#3f3f46] opacity-50"
-                    >
+                    <Card key={mesa.id} className="p-4 flex flex-col">
+                      <StatusBadge tone="warning" icon={ChefHat} className="self-start mb-2">
+                        {mesa.items_pendientes} {mesa.items_pendientes === 1 ? 'ítem' : 'ítems'} en cocina
+                      </StatusBadge>
                       <Datos mesa={mesa} />
-                      <div className="text-xs text-[#71717a] mt-1">
-                        {mesa.items_pendientes} ítems en cocina
-                      </div>
-                    </div>
+                      <p className="text-muted text-caption mt-3 pt-3 border-t border-line">
+                        Disponible para cobrar cuando termine
+                      </p>
+                    </Card>
                   ))}
                 </div>
               </section>
