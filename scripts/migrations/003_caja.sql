@@ -2,9 +2,45 @@
 -- Una sola transacción. Idempotente: se puede ejecutar de nuevo sin error ni cambios.
 -- Antes: pg_dump + 003_caja_diagnostico.sql. No modifica datos existentes: los comprobantes
 -- históricos quedan con caja_id NULL (no pertenecen a ninguna caja).
+-- Caja heredada: si orbezo.caja ya existe con la forma antigua (columna monto_apertura, sin monto_inicial)
+-- y está VACÍA, se renombra a orbezo.caja_legada (con su pkey, secuencia y constraints) antes de crear la
+-- nueva; los FK externos (p. ej. pago_caja_id_fkey) siguen apuntando a la tabla renombrada. Si tiene filas,
+-- la migración ABORTA sin cambiar nada: nunca borra ni migra datos de caja por su cuenta.
 -- Uso: psql -v ON_ERROR_STOP=1 -h HOST -U USER -d BD -f scripts/migrations/003_caja.sql
 -- Rollback: scripts/migrations/003_caja_rollback.sql
 BEGIN;
+
+DO $$
+DECLARE
+    filas BIGINT;
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_schema = 'orbezo' AND table_name = 'caja' AND column_name = 'monto_apertura')
+       AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_schema = 'orbezo' AND table_name = 'caja' AND column_name = 'monto_inicial') THEN
+        EXECUTE 'SELECT count(*) FROM orbezo.caja' INTO filas;
+        IF filas > 0 THEN
+            RAISE EXCEPTION 'orbezo.caja heredada tiene % fila(s): la migracion 003 se aborta sin cambios. Decide a mano que hacer con esos datos (no se borran ni migran automaticamente).', filas;
+        END IF;
+        IF to_regclass('orbezo.caja_legada') IS NOT NULL THEN
+            RAISE EXCEPTION 'Ya existe orbezo.caja_legada: revisa el estado de la base antes de migrar.';
+        END IF;
+        ALTER TABLE orbezo.caja RENAME TO caja_legada;
+        IF to_regclass('orbezo.caja_pkey') IS NOT NULL THEN
+            ALTER INDEX orbezo.caja_pkey RENAME TO caja_legada_pkey;
+        END IF;
+        IF to_regclass('orbezo.caja_id_seq') IS NOT NULL THEN
+            ALTER SEQUENCE orbezo.caja_id_seq RENAME TO caja_legada_id_seq;
+        END IF;
+        IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'caja_estado_check' AND conrelid = 'orbezo.caja_legada'::regclass) THEN
+            ALTER TABLE orbezo.caja_legada RENAME CONSTRAINT caja_estado_check TO caja_legada_estado_check;
+        END IF;
+        IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'caja_usuario_id_fkey' AND conrelid = 'orbezo.caja_legada'::regclass) THEN
+            ALTER TABLE orbezo.caja_legada RENAME CONSTRAINT caja_usuario_id_fkey TO caja_legada_usuario_id_fkey;
+        END IF;
+        RAISE NOTICE 'orbezo.caja heredada (vacia) renombrada a orbezo.caja_legada';
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS orbezo.caja (
     id             SERIAL PRIMARY KEY,

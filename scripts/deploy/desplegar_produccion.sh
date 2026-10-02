@@ -36,7 +36,8 @@ titulo(){ printf '\n== %s\n' "$*"; }
 
 ya_001()  { [ "$(q "select count(*) from pg_constraint where conname='uq_mesa_salon_numero'")" -gt 0 ]; }
 ya_002a() { [ "$(q "select count(*) from information_schema.columns where table_schema='orbezo' and table_name='pedido' and column_name='anulado_por'")" -gt 0 ]; }
-ya_003()  { [ "$(q "select count(*) from information_schema.tables where table_schema='orbezo' and table_name='caja'")" -gt 0 ] && [ "$(q "select count(*) from information_schema.columns where table_schema='orbezo' and table_name='comprobante' and column_name='caja_id'")" -gt 0 ]; }
+ya_003()  { [ "$(q "select count(*) from information_schema.columns where table_schema='orbezo' and table_name='caja' and column_name='monto_inicial'")" -gt 0 ] && [ "$(q "select count(*) from information_schema.columns where table_schema='orbezo' and table_name='comprobante' and column_name='caja_id'")" -gt 0 ]; }
+caja_heredada() { [ "$(q "select count(*) from information_schema.columns where table_schema='orbezo' and table_name='caja' and column_name='monto_apertura'")" -gt 0 ] && [ "$(q "select count(*) from information_schema.columns where table_schema='orbezo' and table_name='caja' and column_name='monto_inicial'")" = 0 ]; }
 pin_ancho() { q "select character_maximum_length from information_schema.columns where table_schema='orbezo' and table_name='usuario' and column_name='pin'"; }
 pins_claro() { q "select count(*) from orbezo.usuario where pin is not null and pin !~ '^scrypt\\$'"; }
 pins_hash()  { q "select count(*) from orbezo.usuario where pin like 'scrypt\$%'"; }
@@ -68,7 +69,15 @@ fase_pre() {
   fi
   titulo "Diagnóstico 002 anulación (informativo)"
   "${PSQL[@]}" -f "$MIG/002_anulacion_diagnostico.sql" | sed 's/^/  /'
-  titulo "Diagnóstico 003 caja (informativo)"
+  titulo "Colisiones de nombres con objetos existentes (informativo)"
+  "${PSQL[@]}" -f "$MIG/colisiones_diagnostico.sql" | sed 's/^/  /'
+  titulo "Diagnóstico 003 caja"
+  if caja_heredada; then
+    filas=$(q "select count(*) from orbezo.caja")
+    printf '  \033[33m⚠ orbezo.caja existe con la forma HEREDADA (monto_apertura), %s fila(s).\033[0m\n' "$filas"
+    if [ "$filas" = 0 ]; then info "La migración 003 la renombrará a caja_legada (sin perder nada) y creará la caja nueva."
+    else printf '  \033[31m✘ Tiene datos: la migración 003 ABORTARÁ sin cambios. Decide a mano qué hacer con ellos antes de migrar.\033[0m\n'; fi
+  fi
   "${PSQL[@]}" -f "$MIG/003_caja_diagnostico.sql" | sed 's/^/  /'
 
   titulo "Respaldo"
@@ -127,7 +136,8 @@ fase_verificar() {
   chk "ck_pedido_anulacion" "$(q "select count(*) from pg_constraint where conname='ck_pedido_anulacion'")" "1"
   chk "ck_pedido_item_cancelacion" "$(q "select count(*) from pg_constraint where conname='ck_pedido_item_cancelacion'")" "1"
   chk "columna pedido.anulado_por" "$(ya_002a && echo 1 || echo 0)" "1"
-  chk "tabla orbezo.caja" "$(q "select count(*) from information_schema.tables where table_schema='orbezo' and table_name='caja'")" "1"
+  chk "orbezo.caja tiene la forma nueva (monto_inicial)" "$(q "select count(*) from information_schema.columns where table_schema='orbezo' and table_name='caja' and column_name='monto_inicial'")" "1"
+  chk "orbezo.caja sin columnas heredadas (monto_apertura, apertura_en, total_efectivo...)" "$(q "select count(*) from information_schema.columns where table_schema='orbezo' and table_name='caja' and column_name in ('monto_apertura','monto_cierre','apertura_en','cierre_en','total_efectivo','total_tarjeta','total_yape','total_plin','total_otros','observacion')")" "0"
   chk "uq_caja_abierta_por_usuario (índice)" "$(q "select count(*) from pg_indexes where indexname='uq_caja_abierta_por_usuario'")" "1"
   chk "restricciones de caja (ck_caja_estado, ck_caja_montos, ck_caja_cierre)" "$(q "select count(*) from pg_constraint where conname in ('ck_caja_estado','ck_caja_montos','ck_caja_cierre')")" "3"
   chk "columna comprobante.caja_id con fk_comprobante_caja" "$(q "select count(*) from pg_constraint where conname='fk_comprobante_caja'")" "1"

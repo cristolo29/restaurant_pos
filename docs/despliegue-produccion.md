@@ -45,6 +45,10 @@ API_URL=http://localhost:8000 ./scripts/deploy/desplegar_produccion.sh verificar
 
 Variables opcionales: `PGDATABASE` (por defecto `restaurant_pos`), `PGUSER`, `PGHOST`, `PGPORT`, `PGPASSWORD`, `RESPALDOS` (por defecto `~/backups-orbezo`), `PYTHON`.
 
+## Atención: caja heredada en producción
+
+Producción ya tiene una tabla `orbezo.caja` **heredada y distinta** (columnas `monto_apertura`, `total_efectivo`, `apertura_en`...; con `orbezo.pago` apuntándole), con 0 filas. La 003 la detecta: si está vacía la renombra a `orbezo.caja_legada` (con su pkey, secuencia y constraints; `pago_caja_id_fkey` sigue apuntando a ella) y crea la nueva; si tiene filas, **aborta sin cambiar nada** (nunca borra ni migra datos de caja). `pre` muestra la advertencia y `verificar` exige la forma nueva (`monto_inicial`) sin columnas heredadas. El rollback devuelve la heredada con sus nombres originales. Prueba automatizada en bases temporales: `scripts/migrations/test_003_caja.sh`. `scripts/migrations/colisiones_diagnostico.sql` (solo lectura) lista cualquier otro nombre de 001-003 que ya exista en la base, con su definición.
+
 ## Migración 003 por separado (si la quieres aplicar a mano)
 
 ```bash
