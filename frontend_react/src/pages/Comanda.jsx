@@ -137,6 +137,18 @@ export default function Comanda() {
     })
   }
 
+  const volver = async () => {
+    try {
+      const actual = pedido ? await getPedido(pedido.id) : null
+      const hayOrden = actual?.items?.some(i => i.estado !== 'cancelado')
+      if (!hayOrden) {
+        if (actual) await cancelarPedido(actual.id)
+        else        await liberarMesa(mesa.id)
+      }
+    } catch { /* no bloquear la navegación */ }
+    navigate('/mesas')
+  }
+
   const irACobro = () => {
     const enCocina = itemsEnviados.filter(i => i.estado === 'pendiente' || i.estado === 'en_preparacion')
     if (enCocina.length > 0) {
@@ -185,7 +197,7 @@ export default function Comanda() {
       <header className="bg-[#27272a] px-3 sm:px-6 py-3 sm:py-4 flex justify-between items-center border-b border-[#3f3f46] sticky top-0 z-10 gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <button
-            onClick={() => navigate('/mesas')}
+            onClick={volver}
             className="text-[#71717a] hover:text-white transition-colors p-1.5 rounded-lg hover:bg-[#3f3f46] shrink-0"
           >
             ←
