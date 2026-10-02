@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas
+from app.pinhash import hash_pin, verify_pin
 from app.security import require_roles
 
 router = APIRouter(prefix="/api/usuarios", tags=["Usuarios"])
@@ -15,6 +16,18 @@ def _admins_activos_restantes(db: Session, excluir_id: int) -> int:
         models.Usuario.activo == True,
         models.Usuario.id != excluir_id,
     ).count()
+
+
+def _usuario_con_pin(db: Session, pin: str, excluir_id: int | None = None):
+    """Busca quién usa ese PIN comparando contra los hashes (sal distinta por usuario)."""
+    q = db.query(models.Usuario).filter(models.Usuario.pin.isnot(None))
+    if excluir_id is not None:
+        q = q.filter(models.Usuario.id != excluir_id)
+    encontrado = None
+    for u in q.all():
+        if verify_pin(pin, u.pin) and encontrado is None:
+            encontrado = u
+    return encontrado
 
 
 def _es_admin_activo(u: models.Usuario) -> bool:
@@ -38,14 +51,14 @@ def crear_usuario(datos: schemas.UsuarioCreate, db: Session = Depends(get_db), _
     if existente:
         raise HTTPException(status_code=400, detail="Ya existe un usuario con ese email")
     if datos.pin:
-        pin_en_uso = db.query(models.Usuario).filter(models.Usuario.pin == datos.pin).first()
+        pin_en_uso = _usuario_con_pin(db, datos.pin)
         if pin_en_uso:
             raise HTTPException(status_code=400, detail=f"El PIN ya está asignado a '{pin_en_uso.nombre}'")
     nuevo = models.Usuario(
         rol_id = datos.rol_id,
         nombre = datos.nombre,
         email  = datos.email,
-        pin    = datos.pin,
+        pin    = hash_pin(datos.pin) if datos.pin else None,
         activo = datos.activo,
     )
     db.add(nuevo)
@@ -73,10 +86,7 @@ def actualizar_usuario(
     if email_en_uso:
         raise HTTPException(status_code=400, detail="El email ya está en uso por otro usuario")
     if datos.pin:
-        pin_en_uso = db.query(models.Usuario).filter(
-            models.Usuario.pin == datos.pin,
-            models.Usuario.id != usuario_id,
-        ).first()
+        pin_en_uso = _usuario_con_pin(db, datos.pin, excluir_id=usuario_id)
         if pin_en_uso:
             raise HTTPException(status_code=400, detail=f"El PIN ya está asignado a '{pin_en_uso.nombre}'")
     nuevo_rol = db.query(models.Rol).filter(models.Rol.id == datos.rol_id).first()
@@ -93,7 +103,7 @@ def actualizar_usuario(
     usuario.email  = datos.email
     usuario.activo = datos.activo
     if datos.pin:
-        usuario.pin = datos.pin
+        usuario.pin = hash_pin(datos.pin)
     db.commit()
     db.refresh(usuario)
     r = schemas.UsuarioResponse.model_validate(usuario)
@@ -117,6 +127,8 @@ def eliminar_usuario(
     tiene_historial = (
         db.query(models.Pedido).filter(models.Pedido.usuario_id == usuario.id).first()
         or db.query(models.Comprobante).filter(models.Comprobante.usuario_id == usuario.id).first()
+        or db.query(models.Pedido).filter(models.Pedido.anulado_por == usuario.id).first()
+        or db.query(models.PedidoItem).filter(models.PedidoItem.cancelado_por == usuario.id).first()
     )
     if tiene_historial:
         raise HTTPException(status_code=409, detail="El usuario tiene pedidos o comprobantes; desactívalo en vez de eliminarlo")

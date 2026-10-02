@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -33,7 +34,11 @@ def _recalcular_totales(pedido: models.Pedido, db: Session):
 
 
 @router.post("", response_model=schemas.PedidoResponse)
-def abrir_pedido(pedido: schemas.PedidoCreate, db: Session = Depends(get_db), _=_operador):
+def abrir_pedido(
+    pedido: schemas.PedidoCreate,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(require_roles("mozo", "cajero", "admin")),
+):
     mesa = db.query(models.Mesa).filter(models.Mesa.id == pedido.mesa_id).first()
 
     if not mesa:
@@ -47,12 +52,15 @@ def abrir_pedido(pedido: schemas.PedidoCreate, db: Session = Depends(get_db), _=
         models.Pedido.estado  == "abierto",
     ).first()
     if huerfano:
-        huerfano.estado = "anulado"
+        huerfano.estado           = "anulado"
+        huerfano.anulado_por      = current_user.id
+        huerfano.anulado_at       = datetime.now(timezone.utc)
+        huerfano.motivo_anulacion = "Pedido huérfano anulado al abrir uno nuevo"
         db.flush()
 
     nuevo_pedido = models.Pedido(
         mesa_id    = pedido.mesa_id,
-        usuario_id = pedido.usuario_id,
+        usuario_id = current_user.id,
         tipo       = pedido.tipo,
         estado     = "abierto",
     )
@@ -151,33 +159,71 @@ def actualizar_estado_item(
     if not item:
         raise HTTPException(status_code=404, detail="Item no encontrado")
 
-    item.estado = nuevo_estado
-
     if nuevo_estado == "cancelado":
+        if item.estado in ("entregado", "cancelado"):
+            raise HTTPException(status_code=409, detail=f"No se puede cancelar un ítem {item.estado}")
         pedido = db.query(models.Pedido).filter(models.Pedido.id == item.pedido_id).first()
+        if rol == "mozo":
+            if pedido is None or pedido.usuario_id != current_user.id:
+                raise HTTPException(status_code=403, detail="Solo puedes cancelar ítems de tus propios pedidos")
+            if item.estado != "pendiente":
+                raise HTTPException(
+                    status_code=403,
+                    detail="El ítem ya fue enviado a cocina; pide a un cajero o administrador que lo cancele",
+                )
+        item.cancelado_por      = current_user.id
+        item.cancelado_at       = datetime.now(timezone.utc)
+        item.motivo_cancelacion = datos.motivo
+        item.estado             = nuevo_estado
         if pedido:
+            db.flush()
             _recalcular_totales(pedido, db)
+    else:
+        item.estado = nuevo_estado
 
     db.commit()
     return {"id": item.id, "estado": item.estado}
 
 
 @router.put("/{pedido_id}/cancelar")
-def cancelar_pedido(pedido_id: int, db: Session = Depends(get_db), _=_operador):
+def cancelar_pedido(
+    pedido_id: int,
+    datos: schemas.MotivoAnulacion,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(require_roles("mozo", "cajero", "admin")),
+):
     pedido = db.query(models.Pedido).filter(models.Pedido.id == pedido_id).first()
     if not pedido:
         raise HTTPException(status_code=404, detail="El pedido no existe")
+
+    es_mozo = current_user.rol.nombre == "mozo"
+    if es_mozo and pedido.usuario_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Solo puedes anular tus propios pedidos")
     if pedido.estado != "abierto":
         raise HTTPException(status_code=400, detail=f"No se puede anular un pedido {pedido.estado}")
 
     mesa  = db.query(models.Mesa).filter(models.Mesa.id == pedido.mesa_id).first()
     items = db.query(models.PedidoItem).filter(models.PedidoItem.pedido_id == pedido_id).all()
 
-    pedido.estado = "anulado"
+    if es_mozo and any(i.estado != "pendiente" for i in items if i.estado != "cancelado"):
+        raise HTTPException(
+            status_code=403,
+            detail="El pedido ya tiene ítems enviados a cocina; pide a un cajero o administrador que lo anule",
+        )
+
+    ahora = datetime.now(timezone.utc)
+    pedido.estado           = "anulado"
+    pedido.anulado_por      = current_user.id
+    pedido.anulado_at       = ahora
+    pedido.motivo_anulacion = datos.motivo
     if mesa:
         mesa.estado = "disponible"
     for item in items:
-        item.estado = "cancelado"
+        if item.estado != "cancelado":  # conserva el rastro de los ya cancelados antes
+            item.estado             = "cancelado"
+            item.cancelado_por      = current_user.id
+            item.cancelado_at       = ahora
+            item.motivo_cancelacion = datos.motivo
 
     db.commit()
     return {

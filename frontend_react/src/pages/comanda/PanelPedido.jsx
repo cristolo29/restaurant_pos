@@ -21,6 +21,7 @@ export default function PanelPedido({
   carrito, enviados, totalCarrito, totalEnviado, totalGeneral,
   enviando, puedeCobrar, puedeIrACobro,
   onMas, onMenos, onEnviar, onQuitarEnviado, onCobrar, onAnular,
+  motivoNoAnular = '', motivoNoQuitar = () => '',
 }) {
   const vacio = carrito.length === 0 && enviados.length === 0
   const unidades = carrito.reduce((s, i) => s + i.cantidad, 0)
@@ -67,6 +68,7 @@ export default function PanelPedido({
           <Seccion titulo="Ya enviados" cuenta={`${enviados.length} ${enviados.length === 1 ? 'ítem' : 'ítems'}`}>
             {enviados.map(item => {
               const estado = ESTADO_ITEM[item.estado] ?? ESTADO_ITEM.pendiente
+              const noQuitar = motivoNoQuitar(item)
               return (
                 <li
                   key={item.id}
@@ -89,11 +91,14 @@ export default function PanelPedido({
                       <StatusBadge tone={estado.tono} icon={estado.icono}>{estado.label}</StatusBadge>
                       <span className="num text-muted text-caption">{money(item.subtotal)}</span>
                     </div>
+                    {noQuitar && <p className="text-warning text-caption mt-1">{noQuitar}</p>}
                   </div>
                   <Button
                     variant="ghost" iconOnly size="sm" icon={Trash2}
                     onClick={() => onQuitarEnviado(item)}
-                    aria-label={`Quitar ${item.nombre} del pedido`}
+                    disabled={!!noQuitar}
+                    title={noQuitar || undefined}
+                    aria-label={noQuitar ? `No se puede quitar ${item.nombre}: ${noQuitar}` : `Quitar ${item.nombre} del pedido`}
                     className="hover:text-danger hover:bg-danger/10 -mr-1 -mt-1"
                   />
                 </li>
@@ -145,7 +150,8 @@ export default function PanelPedido({
           </Button>
         )}
 
-        <Button variant="ghost" size="sm" icon={Ban} block onClick={onAnular} className="text-danger hover:text-danger hover:bg-danger/10">
+        {motivoNoAnular && <p className="text-warning text-caption text-center">Anular no disponible: {motivoNoAnular}</p>}
+        <Button variant="ghost" size="sm" icon={Ban} block onClick={onAnular} disabled={!!motivoNoAnular} className="text-danger hover:text-danger hover:bg-danger/10">
           Anular pedido
         </Button>
       </div>

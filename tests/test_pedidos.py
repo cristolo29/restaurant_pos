@@ -38,7 +38,7 @@ def test_cancelar_pedido(client, auth_mozo, mesa, usuario_mozo, db):
         "mesa_id": mesa.id, "usuario_id": usuario_mozo.id
     }, headers=auth_mozo).json()
 
-    r = client.put(f"/api/pedidos/{pedido['id']}/cancelar", headers=auth_mozo)
+    r = client.put(f"/api/pedidos/{pedido['id']}/cancelar", json={"motivo": "Cliente se retiró"}, headers=auth_mozo)
     assert r.status_code == 200
 
     # Mesa debe quedar disponible

@@ -121,10 +121,11 @@ export default function Comanda() {
     } catch (e) {
       if (pedidoActual?.id) { try { setPedido(await getPedido(pedidoActual.id)) } catch { /* sin red */ } }
       const falta = carrito.length - enviados
+      const detalle = e.response?.data?.detail
       toast.error(
         enviados > 0
           ? `Solo se enviaron ${enviados}. Faltan ${falta} en "Por enviar": revisa e inténtalo de nuevo.`
-          : (e.response?.data?.detail || 'No se pudo enviar a cocina. Tu pedido sigue aquí: inténtalo de nuevo.')
+          : (typeof detalle === 'string' ? detalle : 'No se pudo enviar a cocina. Tu pedido sigue aquí: inténtalo de nuevo.')
       )
     } finally {
       setEnviando(false)
@@ -137,8 +138,9 @@ export default function Comanda() {
       mensaje: `"${item.nombre}" será cancelado y cocina dejará de prepararlo.`,
       labelConfirm: 'Quitar',
       colorConfirm: 'danger',
-      onConfirm: async () => {
-        await cancelarItem(item.id)
+      pedirMotivo: true,
+      onConfirm: async (motivo) => {
+        await cancelarItem(item.id, motivo)
         await recargarPedido()
       },
     })
@@ -150,8 +152,9 @@ export default function Comanda() {
       mensaje: `Se cancelará todo el pedido de la Mesa ${mesa?.numero} y la mesa quedará disponible.`,
       labelConfirm: 'Anular pedido',
       colorConfirm: 'danger',
-      onConfirm: async () => {
-        if (pedido) await cancelarPedido(pedido.id)
+      pedirMotivo: true,
+      onConfirm: async (motivo) => {
+        if (pedido) await cancelarPedido(pedido.id, motivo)
         else        await liberarMesa(mesa.id)
         navigate('/mesas')
       },
@@ -163,7 +166,7 @@ export default function Comanda() {
       const actual = pedido ? await getPedido(pedido.id) : null
       const hayOrden = actual?.items?.some(i => i.estado !== 'cancelado')
       if (!hayOrden) {
-        if (actual) await cancelarPedido(actual.id)
+        if (actual) await cancelarPedido(actual.id, 'Pedido vacío: se salió de la comanda sin enviar ítems')
         else        await liberarMesa(mesa.id)
       }
     } catch { /* no bloquear la navegación */ }
@@ -206,6 +209,23 @@ export default function Comanda() {
   const totalGeneral  = totalCarrito + totalEnviado
   const totalItems    = carrito.length + itemsEnviados.length
   const listos        = itemsEnviados.filter(i => i.estado === 'listo').length
+
+  // Reglas de anulación (el backend es la autoridad; aquí solo se evita ofrecer lo que rechazaría)
+  const rol = usuario?.rol_nombre
+  const esMozo = rol === 'mozo'
+  const sinPermiso = rol !== 'mozo' && rol !== 'cajero' && rol !== 'admin'
+  const pedidoAjeno = esMozo && !!pedido && pedido.usuario_id !== usuario?.id
+  const hayItemsEnCocina = itemsEnviados.some(i => i.estado !== 'pendiente')
+  const motivoNoAnular = sinPermiso ? 'Tu rol no puede anular pedidos.'
+    : !esMozo || !pedido ? ''
+    : pedidoAjeno ? 'Solo puedes anular pedidos que abriste tú.'
+    : hayItemsEnCocina ? 'Hay ítems enviados a cocina: pide a un cajero o administrador que anule el pedido.'
+    : ''
+  const motivoNoQuitar = (item) => sinPermiso ? 'Tu rol no puede quitar ítems.'
+    : !esMozo ? ''
+    : pedidoAjeno ? 'Solo puedes quitar ítems de tus pedidos.'
+    : item.estado !== 'pendiente' ? 'Ya está en cocina: pide a un cajero o administrador que lo quite.'
+    : ''
 
   const cantidadEnCarrito = (productoId) =>
     carrito.reduce((s, i) => (i.producto_id === productoId ? s + i.cantidad : s), 0)
@@ -290,6 +310,8 @@ export default function Comanda() {
             onQuitarEnviado={eliminarItemEnviado}
             onCobrar={irACobro}
             onAnular={anular}
+            motivoNoAnular={motivoNoAnular}
+            motivoNoQuitar={motivoNoQuitar}
           />
         </section>
       </div>

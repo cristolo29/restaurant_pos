@@ -51,11 +51,13 @@ docker-compose up --build
 - **`security.py`** — JWT creation/validation (`python-jose`, HS256, 12h expiry), `get_current_user` dependency, `require_roles(*roles)` factory
 - **`routers/`** — One file per domain: `auth`, `categorias`, `productos`, `mesas`, `pedidos`, `comprobantes`, `usuarios`, `salones`, `dashboard`. All prefixed with `/api`
 
-**Auth flow**: PIN-based login (`POST /api/login`) returns a JWT. No password hashing — authentication is PIN only.
+**Auth flow**: PIN-based login (`POST /api/login`) returns a JWT. PIN-only login (no username): the PIN is stored as a salted scrypt hash (`app/pinhash.py`, never returned by the API) and login verifies it against all active users. The hash is not reversible: rolling back migration 002 requires restoring the pre-migration `pg_dump` or reassigning PINs. Generate a hash with `python -m app.pinhash <PIN>`.
 
 **Roles**: `admin`, `mozo`, `cajero`, `cocinero`. Protected routes use `Depends(require_roles("admin", "cajero"))`.
 
 **DB schema**: All tables live in the `orbezo` PostgreSQL schema (set via `__table_args__ = {"schema": "orbezo"}`). No Alembic — tables are managed with `Base.metadata.create_all`.
+
+**Migraciones SQL**: `scripts/migrations/` contiene scripts manuales numerados (`001_diagnostico.sql` de solo lectura, `001_integridad.sql` en una transacción, `001_rollback.sql`). Ejecutar con `psql -v ON_ERROR_STOP=1`; antes, `pg_dump` y diagnóstico vacío. Regla: cada restricción se declara en `models.py` y en SQL (`init_db.sql` + migración) con el mismo nombre.
 
 ### Frontend (`frontend_react/src/`)
 

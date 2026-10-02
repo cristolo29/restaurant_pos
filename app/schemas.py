@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List, Literal
 
 
@@ -22,7 +22,7 @@ class CategoriaResponse(CategoriaCreate):
 class ProductoCreate(BaseModel):
     categoria_id: int
     nombre: str
-    precio: float
+    precio: float = Field(ge=0)
     disponible: bool = True
     afecto_igv: bool = True
 
@@ -39,7 +39,7 @@ class ProductoResponse(ProductoCreate):
 class MesaCreate(BaseModel):
     salon_id: int
     numero: str
-    capacidad: int = 4
+    capacidad: int = Field(default=4, gt=0)
 
 
 class MesaResponse(MesaCreate):
@@ -91,11 +91,32 @@ class UsuarioResponse(BaseModel):
 
 class ItemEstadoUpdate(BaseModel):
     estado: Literal["pendiente", "en_preparacion", "listo", "entregado", "cancelado"]
+    motivo: Optional[str] = Field(default=None, max_length=200)
+
+    @model_validator(mode="after")
+    def _motivo_si_cancela(self):
+        if self.estado == "cancelado":
+            if not self.motivo or len(self.motivo.strip()) < 3:
+                raise ValueError("Cancelar un ítem exige un motivo de al menos 3 caracteres")
+            self.motivo = self.motivo.strip()
+        return self
+
+
+class MotivoAnulacion(BaseModel):
+    motivo: str = Field(min_length=3, max_length=200)
+
+    @field_validator("motivo")
+    @classmethod
+    def _sin_espacios_sobrantes(cls, v):
+        v = v.strip()
+        if len(v) < 3:
+            raise ValueError("El motivo debe tener al menos 3 caracteres")
+        return v
 
 
 class PedidoItemCreate(BaseModel):
     producto_id: int
-    cantidad: int = 1
+    cantidad: int = Field(default=1, gt=0)
     nota: Optional[str] = None
 
 
@@ -115,8 +136,8 @@ class PedidoItemResponse(PedidoItemCreate):
 
 class PedidoCreate(BaseModel):
     mesa_id: int
-    usuario_id: int
-    tipo: str = "en_mesa"
+    usuario_id: Optional[int] = None  # se ignora: el pedido se abre a nombre del usuario autenticado
+    tipo: Literal["en_mesa", "para_llevar", "delivery"] = "en_mesa"
 
 
 class PedidoResponse(PedidoCreate):
@@ -140,10 +161,10 @@ class PedidoDetalleResponse(PedidoResponse):
 
 class ComprobanteCreate(BaseModel):
     pedido_id:          int
-    tipo:               str  # "boleta" | "factura"
-    metodo_pago:        str = "efectivo"
-    monto_pagado:       float = 0
-    vuelto:             float = 0
+    tipo:               Literal["boleta", "factura"]
+    metodo_pago:        Literal["efectivo", "tarjeta", "yape", "plin"] = "efectivo"
+    monto_pagado:       float = Field(default=0, ge=0)
+    vuelto:             float = Field(default=0, ge=0)
     nro_doc_cliente:    Optional[str] = None
     razon_social:       Optional[str] = None
     direccion_cliente:  Optional[str] = None
@@ -174,6 +195,7 @@ class ComprobanteResponse(BaseModel):
     direccion_cliente: Optional[str]
     subtotal:          float
     igv:               float
+    descuento:         float = 0
     total:             float
     estado_sunat:      str
     created_at:        Optional[str] = None

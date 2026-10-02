@@ -147,19 +147,24 @@ export default function Mesas() {
     }
   })
 
-  // Agrupar por salón solo si hay más de uno con mesas
+  // Agrupar por salón solo si hay más de uno con mesas.
+  // Orden estable: salones por id, mesas por número (desempate por id).
   const grupos = useMemo(() => {
     const porSalon = new Map()
     for (const m of visibles) {
       if (!porSalon.has(m.salon_id)) porSalon.set(m.salon_id, [])
       porSalon.get(m.salon_id).push(m)
     }
-    if (porSalon.size <= 1) return [{ id: 'unico', nombre: null, mesas: visibles }]
-    return [...porSalon.entries()].map(([id, lista]) => ({
-      id,
-      nombre: salones.find(s => s.id === id)?.nombre ?? `Salón ${id}`,
-      mesas: lista,
-    }))
+    const ordenar = (lista) => [...lista].sort((a, b) =>
+      String(a.numero).localeCompare(String(b.numero), undefined, { numeric: true }) || a.id - b.id)
+    if (porSalon.size <= 1) return [{ id: 'unico', nombre: null, mesas: ordenar(visibles) }]
+    return [...porSalon.entries()]
+      .sort(([a], [b]) => (a ?? Infinity) - (b ?? Infinity))
+      .map(([id, lista]) => ({
+        id,
+        nombre: salones.find(s => s.id === id)?.nombre ?? (id == null ? 'Sin salón' : `Salón ${id}`),
+        mesas: ordenar(lista),
+      }))
   }, [visibles, salones])
 
   const grid = 'grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 sm:gap-4'

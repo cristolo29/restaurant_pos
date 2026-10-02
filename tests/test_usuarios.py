@@ -80,7 +80,8 @@ def test_admin_no_puede_desactivarse_ni_quitarse_el_rol(client, auth_admin, usua
 
 def test_admin_puede_eliminar_a_otro_admin(client, auth_admin, usuario_admin, db, rol_admin):
     from app import models
-    otro = models.Usuario(rol_id=rol_admin.id, nombre="Otro Admin", email="otro@t.com", pin="8888", activo=True)
+    from app.pinhash import hash_pin
+    otro = models.Usuario(rol_id=rol_admin.id, nombre="Otro Admin", email="otro@t.com", pin=hash_pin("8888"), activo=True)
     db.add(otro); db.commit(); db.refresh(otro)
     r = client.delete(f"/api/usuarios/{otro.id}", headers=auth_admin)
     assert r.status_code == 200

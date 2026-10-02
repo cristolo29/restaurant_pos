@@ -1,4 +1,7 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, text, Numeric, func
+from sqlalchemy import (
+    Column, Integer, String, Boolean, DateTime, ForeignKey, text, Numeric, func,
+    UniqueConstraint, CheckConstraint, Index,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -24,7 +27,7 @@ class Usuario(Base):
     rol_id = Column(Integer, ForeignKey("orbezo.rol.id"), nullable=False)
     nombre = Column(String(100), nullable=False)
     email = Column(String(150), unique=True, nullable=False, index=True)
-    pin = Column(String(6))
+    pin = Column(String(255))  # hash scrypt (app/pinhash.py), nunca el PIN en claro
     activo = Column(Boolean, nullable=False, default=True)
 
     rol = relationship("Rol", back_populates="usuarios")
@@ -32,7 +35,10 @@ class Usuario(Base):
 
 class Categoria(Base):
     __tablename__ = "categoria"
-    __table_args__ = {"schema": "orbezo"}
+    __table_args__ = (
+        UniqueConstraint("nombre", name="uq_categoria_nombre"),
+        {"schema": "orbezo"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(80), nullable=False)
@@ -44,7 +50,10 @@ class Categoria(Base):
 
 class Producto(Base):
     __tablename__ = "producto"
-    __table_args__ = {"schema": "orbezo"}
+    __table_args__ = (
+        CheckConstraint("precio >= 0", name="ck_producto_precio"),
+        {"schema": "orbezo"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     categoria_id = Column(Integer, ForeignKey("orbezo.categoria.id"), nullable=False)
@@ -58,7 +67,10 @@ class Producto(Base):
 
 class Salon(Base):
     __tablename__ = "salon"
-    __table_args__ = {"schema": "orbezo"}
+    __table_args__ = (
+        UniqueConstraint("nombre", name="uq_salon_nombre"),
+        {"schema": "orbezo"},
+    )
 
     id          = Column(Integer, primary_key=True, index=True)
     nombre      = Column(String(80), nullable=False)
@@ -68,20 +80,32 @@ class Salon(Base):
 
 class Mesa(Base):
     __tablename__ = "mesa"
-    __table_args__ = {"schema": "orbezo"}
+    __table_args__ = (
+        UniqueConstraint("salon_id", "numero", name="uq_mesa_salon_numero"),
+        CheckConstraint("estado IN ('disponible','ocupada','reservada')", name="ck_mesa_estado"),
+        CheckConstraint("capacidad > 0", name="ck_mesa_capacidad"),
+        {"schema": "orbezo"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    salon_id = Column(Integer, nullable=True)
-    numero = Column(String(10), nullable=True)
+    salon_id = Column(Integer, ForeignKey("orbezo.salon.id", ondelete="RESTRICT", name="fk_mesa_salon"), nullable=False)
+    numero = Column(String(10), nullable=False)
     capacidad = Column(Integer, default=4)
-    estado = Column(String(20), default="disponible")
+    estado = Column(String(20), nullable=False, default="disponible")
 
     pedidos = relationship("Pedido", back_populates="mesa")
 
 
 class Pedido(Base):
     __tablename__ = "pedido"
-    __table_args__ = {"schema": "orbezo"}
+    __table_args__ = (
+        CheckConstraint("estado IN ('abierto','cerrado','anulado')", name="ck_pedido_estado"),
+        CheckConstraint("tipo IN ('en_mesa','para_llevar','delivery')", name="ck_pedido_tipo"),
+        Index("uq_pedido_abierto_por_mesa", "mesa_id", unique=True, postgresql_where=text("estado = 'abierto'")),
+        CheckConstraint("subtotal >= 0 AND igv >= 0 AND total >= 0", name="ck_pedido_montos"),
+        CheckConstraint("estado <> 'anulado' OR motivo_anulacion IS NOT NULL", name="ck_pedido_anulacion"),
+        {"schema": "orbezo"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     mesa_id = Column(Integer, ForeignKey("orbezo.mesa.id"), nullable=False)
@@ -92,6 +116,9 @@ class Pedido(Base):
     igv         = Column(Numeric(10, 2), default=0)
     total       = Column(Numeric(10, 2), default=0)
     created_at  = Column(DateTime(timezone=True), server_default=func.now())
+    anulado_por      = Column(Integer, ForeignKey("orbezo.usuario.id", name="fk_pedido_anulado_por"))
+    anulado_at       = Column(DateTime(timezone=True))
+    motivo_anulacion = Column(String(200))
 
     mesa = relationship("Mesa", back_populates="pedidos")
     items = relationship("PedidoItem", back_populates="pedido")
@@ -99,7 +126,11 @@ class Pedido(Base):
 
 class SerieComprobante(Base):
     __tablename__ = "serie_comprobante"
-    __table_args__ = {"schema": "orbezo"}
+    __table_args__ = (
+        UniqueConstraint("tipo", "serie", name="uq_serie_tipo_serie"),
+        CheckConstraint("tipo IN ('boleta','factura')", name="ck_serie_tipo"),
+        {"schema": "orbezo"},
+    )
 
     id          = Column(Integer, primary_key=True, index=True)
     tipo        = Column(String(10), nullable=False)
@@ -110,7 +141,14 @@ class SerieComprobante(Base):
 
 class Comprobante(Base):
     __tablename__ = "comprobante"
-    __table_args__ = {"schema": "orbezo"}
+    __table_args__ = (
+        CheckConstraint("tipo IN ('boleta','factura')", name="ck_comprobante_tipo"),
+        CheckConstraint("metodo_pago IN ('efectivo','tarjeta','yape','plin')", name="ck_comprobante_metodo_pago"),
+        UniqueConstraint("serie", "correlativo", name="uq_comprobante_serie_correlativo"),
+        UniqueConstraint("pedido_id", name="uq_comprobante_pedido"),
+        CheckConstraint("subtotal >= 0 AND igv >= 0 AND descuento >= 0 AND total >= 0 AND monto_pagado >= 0 AND vuelto >= 0", name="ck_comprobante_montos"),
+        {"schema": "orbezo"},
+    )
 
     id                  = Column(Integer, primary_key=True, index=True)
     pedido_id           = Column(Integer, ForeignKey("orbezo.pedido.id"), nullable=False)
@@ -142,7 +180,10 @@ class Comprobante(Base):
 
 class ComprobanteItem(Base):
     __tablename__ = "comprobante_item"
-    __table_args__ = {"schema": "orbezo"}
+    __table_args__ = (
+        CheckConstraint("cantidad > 0", name="ck_comprobante_item_cantidad"),
+        {"schema": "orbezo"},
+    )
 
     id              = Column(Integer, primary_key=True, index=True)
     comprobante_id  = Column(Integer, ForeignKey("orbezo.comprobante.id"), nullable=False)
@@ -157,7 +198,13 @@ class ComprobanteItem(Base):
 
 class PedidoItem(Base):
     __tablename__ = "pedido_item"
-    __table_args__ = {"schema": "orbezo"}
+    __table_args__ = (
+        CheckConstraint("estado IN ('pendiente','en_preparacion','listo','entregado','cancelado')", name="ck_pedido_item_estado"),
+        CheckConstraint("cantidad > 0", name="ck_pedido_item_cantidad"),
+        CheckConstraint("precio_unit >= 0 AND subtotal >= 0", name="ck_pedido_item_montos"),
+        CheckConstraint("estado <> 'cancelado' OR motivo_cancelacion IS NOT NULL", name="ck_pedido_item_cancelacion"),
+        {"schema": "orbezo"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     pedido_id = Column(Integer, ForeignKey("orbezo.pedido.id"), nullable=False)
@@ -167,6 +214,9 @@ class PedidoItem(Base):
     subtotal = Column(Numeric(10, 2), nullable=False)
     estado = Column(String(20), default="pendiente")  # pendiente, en_preparacion, listo, cancelado
     nota = Column(String)
+    cancelado_por      = Column(Integer, ForeignKey("orbezo.usuario.id", name="fk_pedido_item_cancelado_por"))
+    cancelado_at       = Column(DateTime(timezone=True))
+    motivo_cancelacion = Column(String(200))
 
     pedido   = relationship("Pedido", back_populates="items")
     producto = relationship("Producto")

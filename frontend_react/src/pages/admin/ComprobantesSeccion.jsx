@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle, Eye, Receipt, SearchX } from 'lucide-react'
+import { AlertTriangle, FileText, Receipt, SearchX } from 'lucide-react'
 import { Button, Card, EmptyState, Input, Modal, Skeleton, StatusBadge } from '../../components/ui'
 import ModalConfirm from '../../components/ModalConfirm'
 import DetalleComprobante from './DetalleComprobante'
@@ -89,7 +89,7 @@ export default function ComprobantesSeccion({ comprobantes, cargando, error, onR
                   </td>
                   <td className="num px-3 py-2 text-right text-ink font-semibold whitespace-nowrap">{soles(c.total)}</td>
                   <td className="px-3 py-2 text-right">
-                    <Button variant="ghost" iconOnly icon={Eye} onClick={() => setDetalle(c)} aria-label={`Ver detalle del comprobante ${c.numero}`} title="Ver detalle" />
+                    <Button variant="ghost" iconOnly icon={FileText} onClick={() => setDetalle(c)} aria-label={`Ver detalle del comprobante ${c.numero}`} title="Ver detalle" />
                   </td>
                 </tr>
               ))}
@@ -130,8 +130,7 @@ export default function ComprobantesSeccion({ comprobantes, cargando, error, onR
       {cuerpo}
 
       {detalle && (
-        <Modal title={`Comprobante ${detalle.numero}`} onClose={() => setDetalle(null)} className="sm:max-w-2xl"
-          description={`${detalle.tipo === 'factura' ? 'Factura' : 'Boleta'} · ${METODO_LABEL[detalle.metodo_pago] || detalle.metodo_pago || '—'} · ${detalle.created_at || '—'}`}>
+        <Modal title={`Comprobante ${detalle.numero}`} onClose={() => setDetalle(null)} className="sm:max-w-3xl">
           <DetalleComprobante c={detalle} />
         </Modal>
       )}
