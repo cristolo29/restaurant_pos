@@ -1,4 +1,4 @@
-# Despliegue a producción: integridad de BD, anulación con rastro, PIN con hash y caja/arqueo
+# Despliegue a producción: integridad de BD, anulación con rastro, PIN con hash, caja/arqueo y movimientos de caja
 
 Script: `scripts/deploy/desplegar_produccion.sh` · Rama: `integracion/ui-profesional-integridad`
 
@@ -6,6 +6,8 @@ Script: `scripts/deploy/desplegar_produccion.sh` · Rama: `integracion/ui-profes
 
 - La base `restaurant_pos` recibe restricciones nuevas (migración `001`), columnas de rastro de anulación (`002_anulacion_rastro`) y los PIN pasan a **hash scrypt** (`002_pin_hash` + `002_hashear_pins.py`).
 - Migración `003_caja` (tabla `caja` y `comprobante.caja_id`): agrega el turno de caja con arqueo. Es solo aditiva (no toca datos; los comprobantes históricos quedan sin caja) e idempotente.
+- Migración `004_caja_movimientos` (requiere la 003): tabla `caja_movimiento` (ingresos, egresos y retiros de efectivo del turno) y las columnas `caja.conteo` (JSONB) y `caja.autorizado_por`. Solo aditiva e idempotente; no toca datos. Si algún nombre de la 004 ya existe con otra forma, **aborta sin cambios**.
+- **Caja profesional (fase 1):** el efectivo esperado pasa a ser fondo + efectivo cobrado + ingresos − egresos − retiros (calculado solo en el servidor); el cajero cierra **a ciegas** (la API no le envía el esperado mientras la caja está abierta; el admin sí lo ve); el cierre acepta conteo por denominaciones; una diferencia mayor a `CAJA_TOLERANCIA` exige el PIN de un administrador (ver más abajo).
 - **Desde este cambio, cobrar exige una caja abierta del cajero/admin que cobra** (`409 «Abre la caja antes de cobrar»`). Avisa al personal: la primera acción del turno es abrir caja en `/caja`.
 - El cobro pasa a ser una sola llamada atómica (`POST /api/pedidos/{id}/cobrar`) con el pago validado en el servidor; `PUT /cerrar` y `POST /api/comprobantes` quedan obsoletos pero siguen funcionando.
 - El código nuevo **ya no acepta PIN en claro**: si arranca antes de migrar, nadie entra.
@@ -59,6 +61,23 @@ psql -v ON_ERROR_STOP=1 -h HOST -U USER -d BD -f scripts/migrations/003_caja_rol
 
 El script `migrar` ya la aplica (detecta si la tabla `caja` y `comprobante.caja_id` existen y la omite). `verificar` comprueba la tabla, `uq_caja_abierta_por_usuario`, los tres `ck_caja_*` y `fk_comprobante_caja`.
 
+## Migración 004 (movimientos de caja) y configuración nueva
+
+```bash
+psql -h HOST -U USER -d BD -f scripts/migrations/004_caja_movimientos_diagnostico.sql   # solo lectura
+psql -h HOST -U USER -d BD -f scripts/migrations/colisiones_diagnostico.sql             # solo lectura: nombres ya existentes (incluye los de la 004)
+psql -v ON_ERROR_STOP=1 -h HOST -U USER -d BD -f scripts/migrations/004_caja_movimientos.sql
+psql -v ON_ERROR_STOP=1 -h HOST -U USER -d BD -f scripts/migrations/004_caja_movimientos_rollback.sql   # DESTRUCTIVO: borra los movimientos y los conteos/autorizaciones de los cierres
+```
+
+- `migrar` la aplica después de la 003 y la detecta como «ya aplicada» solo si existen la tabla `caja_movimiento` **y** las dos columnas nuevas de `caja`. `pre` ejecuta su diagnóstico; `verificar` comprueba `ck_caja_mov_tipo`, `ck_caja_mov_monto`, `ck_caja_mov_motivo`, `fk_caja_mov_caja`, `fk_caja_mov_usuario`, `idx_caja_mov_caja`, `fk_caja_autorizado_por` y que no haya movimientos inválidos.
+- **Estado real de producción tras la 003**: la tabla `caja` nueva convive con `caja_legada` y `pago` (que apunta a `caja_legada`). La 004 no toca ninguna de las dos; nombres confirmados libres: `caja_movimiento`, `idx_caja_mov_caja`, `caja.conteo`, `caja.autorizado_por`. Si la base aún no tiene la 003 (caja heredada), la 004 **aborta** pidiendo aplicarla primero.
+- Prueba automatizada en bases temporales (limpia previa a la 004, estado de producción tras la 003, reaplicada, rollback, colisiones, 003 ausente y comparación con `init_db.sql`): `scripts/migrations/test_004_caja_movimientos.sh`.
+- **Rollback con cajas abiertas:** al quitar la tabla los movimientos se pierden y el esperado de las cajas abiertas dejaría de cuadrar. Haz el rollback solo con las cajas cerradas.
+- **`CAJA_TOLERANCIA`** (variable de entorno de la API, por defecto `2.00`): diferencia máxima, en soles, con la que se cierra sin PIN de administrador. Debe ser un número ≥ 0 con máximo 2 decimales; si es inválida **la API no arranca** y el mensaje lo dice. Se lee una sola vez, al arrancar.
+- **Autorización de una diferencia grande:** con más de un administrador activo, el PIN debe ser de **otro** administrador distinto de quien cierra; con un solo administrador se acepta su propio PIN y las observaciones deben tener al menos 10 caracteres. Tras 5 PIN erróneos seguidos el usuario queda bloqueado 15 minutos (limitador en memoria, válido para una sola instancia de la API).
+- Los PIN de autorización nunca se registran ni se devuelven.
+
 ## Prueba manual después del despliegue
 
 1. Entrar con tu PIN de siempre (admin) y con uno de mozo.
@@ -66,7 +85,8 @@ El script `migrar` ya la aplica (detecta si la tabla `caja` y `comprobante.caja_
 3. Comanda: enviar un ítem a cocina; anular un pedido propio vacío (pide motivo).
 4. Como mozo: no puede anular un pedido ajeno ni uno con ítems en cocina (botón deshabilitado y 403 del servidor).
 5. Cajero: sin caja abierta, Cobro muestra el aviso y no deja cobrar; en `/caja` abrir con un fondo, cobrar una mesa y ver el resumen; cerrar caja con el efectivo contado (con diferencia pide observaciones) e imprimir el arqueo. Admin ve el historial de cajas.
-6. Admin → Comprobantes: abrir el detalle de uno y probar Imprimir (Cmd+P).
+6. Caja (cajero): registrar un ingreso, un egreso y un retiro (el retiro/ingreso imprime su comprobante interno); el resumen no muestra el efectivo esperado; cerrar contando por denominaciones y ver en el arqueo el esperado y «Faltan/Sobran S/ X.XX». Con una diferencia mayor a la tolerancia, el cierre pide el PIN de un administrador. Admin: ve el esperado de las cajas abiertas.
+7. Admin → Comprobantes: abrir el detalle de uno y probar Imprimir (Cmd+P).
 
 ## Si algo sale mal
 

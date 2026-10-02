@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Despliegue de las migraciones de integridad, anulación con rastro, PIN con hash y caja/arqueo (003).
+# Despliegue de las migraciones de integridad, anulación con rastro, PIN con hash, caja/arqueo (003) y
+# movimientos de caja con conteo y autorización (004).
 # Guía completa: docs/despliegue-produccion.md
 #
 # Fases (se ejecutan por separado, en este orden):
 #   pre        Solo lectura + respaldo: estado, diagnóstico (debe salir vacío) y pg_dump verificado.
-#   migrar     Requiere --confirmar. Aplica 001 + 002 + 003 (SQL) y hashea los PIN. EXIGE la API detenida.
+#   migrar     Requiere --confirmar. Aplica 001 + 002 + 003 + 004 (SQL) y hashea los PIN. EXIGE la API detenida.
 #   verificar  Solo lectura: comprueba restricciones, columnas y que no quede ningún PIN en claro.
 #   restaurar  Imprime el comando para volver al respaldo (no ejecuta nada).
 #
@@ -37,6 +38,7 @@ titulo(){ printf '\n== %s\n' "$*"; }
 ya_001()  { [ "$(q "select count(*) from pg_constraint where conname='uq_mesa_salon_numero'")" -gt 0 ]; }
 ya_002a() { [ "$(q "select count(*) from information_schema.columns where table_schema='orbezo' and table_name='pedido' and column_name='anulado_por'")" -gt 0 ]; }
 ya_003()  { [ "$(q "select count(*) from information_schema.columns where table_schema='orbezo' and table_name='caja' and column_name='monto_inicial'")" -gt 0 ] && [ "$(q "select count(*) from information_schema.columns where table_schema='orbezo' and table_name='comprobante' and column_name='caja_id'")" -gt 0 ]; }
+ya_004()  { [ "$(q "select count(*) from information_schema.tables where table_schema='orbezo' and table_name='caja_movimiento'")" -gt 0 ] && [ "$(q "select count(*) from information_schema.columns where table_schema='orbezo' and table_name='caja' and column_name in ('conteo','autorizado_por')")" = 2 ]; }
 caja_heredada() { [ "$(q "select count(*) from information_schema.columns where table_schema='orbezo' and table_name='caja' and column_name='monto_apertura'")" -gt 0 ] && [ "$(q "select count(*) from information_schema.columns where table_schema='orbezo' and table_name='caja' and column_name='monto_inicial'")" = 0 ]; }
 pin_ancho() { q "select character_maximum_length from information_schema.columns where table_schema='orbezo' and table_name='usuario' and column_name='pin'"; }
 pins_claro() { q "select count(*) from orbezo.usuario where pin is not null and pin !~ '^scrypt\\$'"; }
@@ -53,7 +55,7 @@ fase_pre() {
   titulo "PRE · estado y respaldo de '$BD' (solo lectura + pg_dump)"
   conectar
   info "Código: $(git -C "$RAIZ" branch --show-current 2>/dev/null) @ $(git -C "$RAIZ" log --oneline -1 2>/dev/null | cut -c1-70)"
-  info "Estado de migraciones: 001=$(ya_001 && echo aplicada || echo pendiente) | 002 anulación=$(ya_002a && echo aplicada || echo pendiente) | 003 caja=$(ya_003 && echo aplicada || echo pendiente) | PIN hasheados=$(pins_hash) en claro=$(pins_claro)"
+  info "Estado de migraciones: 001=$(ya_001 && echo aplicada || echo pendiente) | 002 anulación=$(ya_002a && echo aplicada || echo pendiente) | 003 caja=$(ya_003 && echo aplicada || echo pendiente) | 004 movimientos=$(ya_004 && echo aplicada || echo pendiente) | PIN hasheados=$(pins_hash) en claro=$(pins_claro)"
   info "Pedidos: $(q "select string_agg(estado||'='||n, ', ') from (select estado, count(*) n from orbezo.pedido group by 1 order by 1) t")"
   abiertos=$(q "select count(*) from orbezo.pedido where estado='abierto'")
   if [ "$abiertos" -gt 0 ]; then
@@ -79,6 +81,9 @@ fase_pre() {
     else printf '  \033[31m✘ Tiene datos: la migración 003 ABORTARÁ sin cambios. Decide a mano qué hacer con ellos antes de migrar.\033[0m\n'; fi
   fi
   "${PSQL[@]}" -f "$MIG/003_caja_diagnostico.sql" | sed 's/^/  /'
+  titulo "Diagnóstico 004 movimientos de caja"
+  if ya_003 || ya_004; then "${PSQL[@]}" -f "$MIG/004_caja_movimientos_diagnostico.sql" | sed 's/^/  /'
+  else info "La 004 exige la caja de forma nueva (003): se aplicará después de la 003 en 'migrar'. Diagnóstico omitido (no hay caja nueva que consultar)."; fi
 
   titulo "Respaldo"
   mkdir -p "$RESPALDOS"; chmod 700 "$RESPALDOS"
@@ -118,6 +123,8 @@ fase_migrar() {
   if ya_002a; then info "ya aplicada, se omite"; else "${PSQL[@]}" -f "$MIG/002_anulacion_rastro.sql"; ok "002 anulación aplicada"; fi
   titulo "003 · caja y arqueo"
   if ya_003; then info "ya aplicada, se omite"; else "${PSQL[@]}" -f "$MIG/003_caja.sql"; ok "003 caja aplicada"; fi
+  titulo "004 · movimientos de caja, conteo y autorización"
+  if ya_004; then info "ya aplicada, se omite"; else "${PSQL[@]}" -f "$MIG/004_caja_movimientos.sql"; ok "004 movimientos aplicada"; fi
   titulo "002 · columna del PIN"
   if [ "$(pin_ancho)" -ge 255 ]; then info "ya es VARCHAR(255), se omite"; else "${PSQL[@]}" -f "$MIG/002_pin_hash.sql"; ok "columna ampliada"; fi
   titulo "002 · hash de PIN (transacción única, idempotente)"
@@ -141,6 +148,10 @@ fase_verificar() {
   chk "uq_caja_abierta_por_usuario (índice)" "$(q "select count(*) from pg_indexes where indexname='uq_caja_abierta_por_usuario'")" "1"
   chk "restricciones de caja (ck_caja_estado, ck_caja_montos, ck_caja_cierre)" "$(q "select count(*) from pg_constraint where conname in ('ck_caja_estado','ck_caja_montos','ck_caja_cierre')")" "3"
   chk "columna comprobante.caja_id con fk_comprobante_caja" "$(q "select count(*) from pg_constraint where conname='fk_comprobante_caja'")" "1"
+  chk "tabla caja_movimiento con idx_caja_mov_caja" "$(q "select (select count(*) from information_schema.tables where table_schema='orbezo' and table_name='caja_movimiento') + (select count(*) from pg_indexes where indexname='idx_caja_mov_caja' and tablename='caja_movimiento')")" "2"
+  chk "restricciones de movimientos (ck_caja_mov_tipo/monto/motivo, fk_caja_mov_caja/usuario)" "$(q "select count(*) from pg_constraint where conrelid='orbezo.caja_movimiento'::regclass and conname in ('ck_caja_mov_tipo','ck_caja_mov_monto','ck_caja_mov_motivo','fk_caja_mov_caja','fk_caja_mov_usuario')")" "5"
+  chk "columnas caja.conteo y caja.autorizado_por con fk_caja_autorizado_por" "$(q "select (select count(*) from information_schema.columns where table_schema='orbezo' and table_name='caja' and column_name in ('conteo','autorizado_por')) + (select count(*) from pg_constraint where conname='fk_caja_autorizado_por' and conrelid='orbezo.caja'::regclass)")" "3"
+  chk "Movimientos de caja con monto <= 0 o tipo inválido" "$(q "select count(*) from orbezo.caja_movimiento where monto <= 0 or tipo not in ('ingreso','egreso','retiro')")" "0"
   chk "Usuarios con más de una caja abierta" "$(q "select count(*) from (select 1 from orbezo.caja where estado='abierta' group by usuario_id having count(*)>1) t")" "0"
   chk "usuario.pin es VARCHAR(255)" "$(pin_ancho)" "255"
   chk "PIN en texto plano restantes" "$(pins_claro)" "0"

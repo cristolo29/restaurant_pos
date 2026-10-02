@@ -166,8 +166,10 @@ CREATE TABLE IF NOT EXISTS orbezo.caja (
     observaciones  VARCHAR(500),
     cerrada_por    INTEGER,
     conteo         JSONB,
+    autorizado_por INTEGER,
     CONSTRAINT fk_caja_usuario FOREIGN KEY (usuario_id) REFERENCES orbezo.usuario(id),
     CONSTRAINT fk_caja_cerrada_por FOREIGN KEY (cerrada_por) REFERENCES orbezo.usuario(id),
+    CONSTRAINT fk_caja_autorizado_por FOREIGN KEY (autorizado_por) REFERENCES orbezo.usuario(id),
     CONSTRAINT ck_caja_estado CHECK (estado IN ('abierta','cerrada')),
     CONSTRAINT ck_caja_montos CHECK (monto_inicial >= 0 AND (monto_contado IS NULL OR monto_contado >= 0) AND (monto_esperado IS NULL OR monto_esperado >= 0)),
     CONSTRAINT ck_caja_cierre CHECK (estado <> 'cerrada' OR (monto_contado IS NOT NULL AND cerrada_at IS NOT NULL AND cerrada_por IS NOT NULL))
