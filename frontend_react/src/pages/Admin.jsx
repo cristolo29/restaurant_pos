@@ -175,12 +175,16 @@ function TablaComprobantes({ comprobantes, expandido, setExpandido, onVerDetalle
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={e => { e.stopPropagation(); onVerDetalle(c) }}
-                        className="sm:hidden w-8 h-8 flex items-center justify-center rounded-lg bg-[#3f3f46] text-[#a1a1aa] active:bg-[#52525b] text-sm shrink-0"
-                        title="Ver detalle"
+                        aria-label="Ver comprobante"
+                        className="w-11 h-11 flex items-center justify-center rounded-lg bg-[#3f3f46] text-[#d4d4d8] hover:bg-[#52525b] active:bg-[#52525b] shrink-0"
                       >
-                        👁
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden="true">
+                          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                          <path d="M14 3v5h5" />
+                          <path d="M9 13h6M9 17h6" />
+                        </svg>
                       </button>
-                      <span className="text-white font-semibold">S/ {Number(c.total).toFixed(2)}</span>
+                      <span className="text-white font-semibold min-w-[6rem] text-right">S/ {Number(c.total).toFixed(2)}</span>
                     </div>
                   </td>
                 </tr>
@@ -258,103 +262,164 @@ function TablaComprobantes({ comprobantes, expandido, setExpandido, onVerDetalle
   )
 }
 
-// ── Modal detalle comprobante (móvil) ─────────────────────────────────────────
+// ── Modal detalle comprobante (boleta / factura) ──────────────────────────────
+const fmt = (n) => `S/ ${Number(n || 0).toFixed(2)}`
+
 function ModalDetalleComprobante({ c, onCerrar }) {
+  const esFactura = c.tipo === 'factura'
+  const tieneCliente = c.nro_doc_cliente || c.razon_social || c.direccion_cliente
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onCerrar() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onCerrar])
+
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50">
-      <div className="bg-[#27272a] border border-[#3f3f46] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl max-h-[88vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50" onClick={onCerrar}>
+      <style>{`
+        @media print {
+          @page { margin: 8mm; }
+          body * { visibility: hidden; }
+          #detalle-comprobante, #detalle-comprobante * { visibility: visible; }
+          #detalle-comprobante {
+            position: fixed; top: 0; left: 0; width: 100%;
+            max-height: none !important; overflow: visible !important;
+            border: none !important; box-shadow: none !important;
+          }
+          #detalle-comprobante, #detalle-comprobante * {
+            background: #fff !important; color: #000 !important; border-color: #999 !important;
+          }
+          .no-print { display: none !important; }
+        }
+      `}</style>
+      <div
+        id="detalle-comprobante"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="detalle-comprobante-titulo"
+        onClick={e => e.stopPropagation()}
+        className="bg-[#27272a] border border-[#3f3f46] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl max-h-[88vh] overflow-y-auto"
+      >
 
         {/* Header sticky */}
         <div className="flex justify-between items-center px-5 py-4 border-b border-[#3f3f46] sticky top-0 bg-[#27272a] z-10">
           <div>
-            <p className="text-[#f59e0b] font-bold text-base">{c.numero}</p>
-            <p className="text-[#71717a] text-xs">{c.created_at || '—'}</p>
+            <p className="text-[#a1a1aa] text-xs uppercase tracking-wider">
+              {esFactura ? 'Factura electrónica' : 'Boleta de venta'}
+            </p>
+            <p id="detalle-comprobante-titulo" className="text-[#f59e0b] font-bold text-lg">{c.numero}</p>
+            <p className="text-[#71717a] text-xs">Fecha: {c.created_at || '—'}</p>
           </div>
-          <button onClick={onCerrar} className="text-[#71717a] hover:text-white text-2xl leading-none w-9 h-9 flex items-center justify-center rounded-xl hover:bg-[#3f3f46] transition-colors">×</button>
+          <button
+            autoFocus
+            onClick={onCerrar}
+            aria-label="Cerrar"
+            className="no-print text-[#a1a1aa] hover:text-white text-2xl leading-none w-12 h-12 flex items-center justify-center rounded-xl hover:bg-[#3f3f46] active:bg-[#52525b] transition-colors"
+          >×</button>
         </div>
 
         <div className="px-5 py-4 flex flex-col gap-5">
 
-          {/* Tipo + método */}
-          <div className="flex gap-2 flex-wrap">
-            <span className={`text-xs px-2.5 py-1 rounded-lg font-medium border ${c.tipo === 'factura' ? 'bg-[#a78bfa]/10 text-[#a78bfa] border-[#a78bfa]/20' : 'bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20'}`}>
-              {c.tipo === 'factura' ? 'Factura' : 'Boleta'}
-            </span>
-            <span className="text-xs px-2.5 py-1 rounded-lg font-medium bg-[#3f3f46] text-[#a1a1aa] border border-[#52525b]/30 capitalize">
-              {METODO_LABEL[c.metodo_pago] || c.metodo_pago || '—'}
-            </span>
-          </div>
-
-          {/* Productos */}
+          {/* Cliente */}
           <div>
-            <p className="text-[#71717a] text-xs uppercase tracking-wider mb-2">Productos</p>
-            <div className="bg-[#1f1f22] rounded-xl overflow-hidden">
-              {c.items.map((item, i) => (
-                <div key={i} className={`flex justify-between items-center px-4 py-2.5 text-sm ${i > 0 ? 'border-t border-[#3f3f46]' : ''}`}>
-                  <span className="text-[#a1a1aa]">{Number(item.cantidad).toFixed(0)}× {item.descripcion}</span>
-                  <span className="text-white font-medium ml-4 shrink-0">S/ {Number(item.subtotal).toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Totales */}
-          <div>
-            <p className="text-[#71717a] text-xs uppercase tracking-wider mb-2">Resumen de pago</p>
+            <p className="text-[#71717a] text-xs uppercase tracking-wider mb-2">Cliente</p>
             <div className="bg-[#1f1f22] rounded-xl px-4 py-3 flex flex-col gap-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-[#71717a]">Subtotal (sin IGV)</span>
-                <span className="text-[#a1a1aa]">S/ {Number(c.subtotal).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#71717a]">IGV 18%</span>
-                <span className="text-[#a1a1aa]">S/ {Number(c.igv).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between border-t border-[#3f3f46] pt-2 mt-0.5">
-                <span className="text-white font-semibold">Total</span>
-                <span className="text-[#f59e0b] font-bold text-base">S/ {Number(c.total).toFixed(2)}</span>
-              </div>
-              {c.metodo_pago === 'efectivo' && Number(c.monto_pagado) > 0 && (
+              {tieneCliente ? (
                 <>
-                  <div className="flex justify-between border-t border-[#3f3f46] pt-2">
-                    <span className="text-[#71717a]">Efectivo recibido</span>
-                    <span className="text-[#a1a1aa]">S/ {Number(c.monto_pagado).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#71717a]">Vuelto</span>
-                    <span className="text-[#22c55e] font-medium">S/ {Number(c.vuelto).toFixed(2)}</span>
-                  </div>
+                  {c.nro_doc_cliente && (
+                    <div className="flex justify-between">
+                      <span className="text-[#71717a]">{esFactura ? 'RUC' : 'DNI'}</span>
+                      <span className="text-[#d4d4d8]">{c.nro_doc_cliente}</span>
+                    </div>
+                  )}
+                  {c.razon_social && (
+                    <div className="flex justify-between gap-4">
+                      <span className="text-[#71717a] shrink-0">{esFactura ? 'Razón social' : 'Nombre'}</span>
+                      <span className="text-[#d4d4d8] text-right">{c.razon_social}</span>
+                    </div>
+                  )}
+                  {c.direccion_cliente && (
+                    <div className="flex justify-between gap-4">
+                      <span className="text-[#71717a] shrink-0">Dirección</span>
+                      <span className="text-[#d4d4d8] text-right">{c.direccion_cliente}</span>
+                    </div>
+                  )}
                 </>
+              ) : (
+                <span className="text-[#a1a1aa]">Cliente sin documento</span>
               )}
             </div>
           </div>
 
-          {/* Cliente */}
-          {(c.nro_doc_cliente || c.razon_social || c.direccion_cliente) && (
-            <div>
-              <p className="text-[#71717a] text-xs uppercase tracking-wider mb-2">Cliente</p>
-              <div className="bg-[#1f1f22] rounded-xl px-4 py-3 flex flex-col gap-2 text-sm">
-                {c.nro_doc_cliente && (
-                  <div className="flex justify-between">
-                    <span className="text-[#71717a]">{c.tipo === 'factura' ? 'RUC' : 'DNI'}</span>
-                    <span className="text-[#a1a1aa]">{c.nro_doc_cliente}</span>
-                  </div>
-                )}
-                {c.razon_social && (
-                  <div className="flex justify-between gap-4">
-                    <span className="text-[#71717a] shrink-0">{c.tipo === 'factura' ? 'Razón social' : 'Nombre'}</span>
-                    <span className="text-[#a1a1aa] text-right">{c.razon_social}</span>
-                  </div>
-                )}
-                {c.direccion_cliente && (
-                  <div className="flex justify-between gap-4">
-                    <span className="text-[#71717a] shrink-0">Dirección</span>
-                    <span className="text-[#a1a1aa] text-right">{c.direccion_cliente}</span>
-                  </div>
-                )}
+          {/* Ítems */}
+          <div>
+            <p className="text-[#71717a] text-xs uppercase tracking-wider mb-2">Detalle</p>
+            <div className="bg-[#1f1f22] rounded-xl overflow-hidden">
+              <table className="w-full text-sm tabular-nums">
+                <thead>
+                  <tr className="text-[#71717a] text-xs border-b border-[#3f3f46]">
+                    <th className="px-3 py-2 text-left font-medium">Cant.</th>
+                    <th className="px-2 py-2 text-left font-medium">Descripción</th>
+                    <th className="px-2 py-2 text-right font-medium">P. unit.</th>
+                    <th className="px-3 py-2 text-right font-medium">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(c.items || []).map((item, i) => (
+                    <tr key={i} className={i > 0 ? 'border-t border-[#3f3f46]' : ''}>
+                      <td className="px-3 py-2 text-[#d4d4d8]">{Number(item.cantidad).toFixed(0)}</td>
+                      <td className="px-2 py-2 text-[#d4d4d8]">{item.descripcion}</td>
+                      <td className="px-2 py-2 text-right text-[#a1a1aa] whitespace-nowrap">{fmt(item.precio_unit)}</td>
+                      <td className="px-3 py-2 text-right text-white font-medium whitespace-nowrap">{fmt(item.subtotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Totales y pago */}
+          <div>
+            <p className="text-[#71717a] text-xs uppercase tracking-wider mb-2">Resumen de pago</p>
+            <div className="bg-[#1f1f22] rounded-xl px-4 py-3 flex flex-col gap-2 text-sm tabular-nums">
+              <div className="flex justify-between">
+                <span className="text-[#71717a]">Subtotal (sin IGV)</span>
+                <span className="text-[#d4d4d8]">{fmt(c.subtotal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#71717a]">IGV 18%</span>
+                <span className="text-[#d4d4d8]">{fmt(c.igv)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#71717a]">Descuento</span>
+                <span className="text-[#d4d4d8]">{Number(c.descuento) > 0 ? `- ${fmt(c.descuento)}` : fmt(0)}</span>
+              </div>
+              <div className="flex justify-between border-t border-[#3f3f46] pt-2 mt-0.5">
+                <span className="text-white font-semibold">Total</span>
+                <span className="text-[#f59e0b] font-bold text-xl">{fmt(c.total)}</span>
+              </div>
+              <div className="flex justify-between border-t border-[#3f3f46] pt-2">
+                <span className="text-[#71717a]">Método de pago</span>
+                <span className="text-[#d4d4d8]">{METODO_LABEL[c.metodo_pago] || c.metodo_pago || '—'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#71717a]">Monto pagado</span>
+                <span className="text-[#d4d4d8]">{fmt(c.monto_pagado)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#71717a]">Vuelto</span>
+                <span className="text-[#d4d4d8] font-medium">{fmt(c.vuelto)}</span>
               </div>
             </div>
-          )}
+          </div>
+
+          <button
+            onClick={() => window.print()}
+            className="no-print w-full min-h-12 rounded-xl bg-[#f59e0b] hover:bg-[#d97706] active:bg-[#b45309] text-black font-semibold text-base transition-colors"
+          >
+            Imprimir
+          </button>
 
         </div>
       </div>
