@@ -14,6 +14,13 @@ MENSAJES = {
     "ck_pedido_item_cancelacion": "Cancelar un ítem exige indicar el motivo",
     "fk_pedido_anulado_por": "El usuario que anula no existe",
     "fk_pedido_item_cancelado_por": "El usuario que cancela no existe",
+    "uq_caja_abierta_por_usuario": "El usuario ya tiene una caja abierta",
+    "ck_caja_estado": "El estado de la caja no es válido",
+    "ck_caja_montos": "Los montos de la caja no pueden ser negativos",
+    "ck_caja_cierre": "Cerrar la caja exige el efectivo contado, la fecha y quién la cierra",
+    "fk_caja_usuario": "El usuario que abre la caja no existe",
+    "fk_caja_cerrada_por": "El usuario que cierra la caja no existe",
+    "fk_comprobante_caja": "La caja indicada no existe",
     "uq_comprobante_pedido": "El pedido ya tiene comprobante",
     "uq_comprobante_serie_correlativo": "El correlativo ya fue emitido; reintenta",
 }

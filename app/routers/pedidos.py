@@ -251,6 +251,10 @@ def cobrar_pedido(
         if pedido.estado != "abierto":
             raise HTTPException(status_code=409, detail=f"El pedido ya está {pedido.estado}; no se puede cobrar")
 
+        caja = cobro.caja_abierta_de(db, current_user.id, bloquear=True)
+        if not caja:
+            raise HTTPException(status_code=409, detail="Abre la caja antes de cobrar")
+
         en_cocina = db.query(models.PedidoItem).filter(
             models.PedidoItem.pedido_id == pedido_id,
             models.PedidoItem.estado.in_(["pendiente", "en_preparacion"]),
@@ -271,7 +275,7 @@ def cobrar_pedido(
             item.estado = "entregado"
         db.flush()
 
-        comprobante = cobro.emitir_comprobante_de_pedido(db, pedido, datos, current_user, items)
+        comprobante = cobro.emitir_comprobante_de_pedido(db, pedido, datos, current_user, items, caja.id)
         db.commit()
     except Exception:
         db.rollback()

@@ -35,7 +35,7 @@ def _pago(**kw):
 
 
 @pytest.fixture
-def listo(client, auth_mozo, auth_cajero, mesa, producto, serie_boleta):
+def listo(client, auth_mozo, auth_cajero, mesa, producto, serie_boleta, caja_cajero):
     return _pedido_listo(client, auth_mozo, auth_cajero, mesa, producto)
 
 
@@ -103,7 +103,7 @@ def test_monto_con_mas_de_dos_decimales_422(client, auth_cajero, listo):
     assert r.status_code == 422
 
 
-def test_items_en_cocina_bloquean_el_cobro(client, auth_mozo, auth_cajero, mesa, producto, serie_boleta, db):
+def test_items_en_cocina_bloquean_el_cobro(client, auth_mozo, auth_cajero, mesa, producto, serie_boleta, db, caja_cajero):
     for estado in ("pendiente", "en_preparacion"):
         mesa_id = mesa.id
         p = _pedido_listo(client, auth_mozo, auth_cajero, mesa, producto, estado_items=estado)
@@ -126,13 +126,13 @@ def test_pedido_inexistente_404(client, auth_cajero):
     assert client.post("/api/pedidos/9999/cobrar", json=_pago(), headers=auth_cajero).status_code == 404
 
 
-def test_pedido_sin_items_409(client, auth_mozo, auth_cajero, mesa, serie_boleta):
+def test_pedido_sin_items_409(client, auth_mozo, auth_cajero, mesa, serie_boleta, caja_cajero):
     p = client.post("/api/pedidos", json={"mesa_id": mesa.id}, headers=auth_mozo).json()
     r = client.post(f"/api/pedidos/{p['id']}/cobrar", json=_pago(monto_pagado=0, vuelto=0), headers=auth_cajero)
     assert r.status_code == 409
 
 
-def test_factura_sin_ruc_400_y_ruc_corto_400(client, auth_cajero, auth_mozo, mesa, producto, serie_factura, db):
+def test_factura_sin_ruc_400_y_ruc_corto_400(client, auth_cajero, auth_mozo, mesa, producto, serie_factura, db, caja_cajero):
     p = _pedido_listo(client, auth_mozo, auth_cajero, mesa, producto)
     for ruc in (None, "2012345"):
         r = client.post(f"/api/pedidos/{p['id']}/cobrar", headers=auth_cajero,
@@ -149,7 +149,7 @@ def test_factura_sin_ruc_400_y_ruc_corto_400(client, auth_cajero, auth_mozo, mes
     assert r.json()["comprobante"]["numero"] == "F001-000001"
 
 
-def test_fallo_en_emision_hace_rollback_completo(client, auth_cajero, auth_mozo, mesa, producto, db):
+def test_fallo_en_emision_hace_rollback_completo(client, auth_cajero, auth_mozo, mesa, producto, db, caja_cajero):
     """Sin serie de boleta la emisión falla DESPUÉS de cerrar: nada debe quedar cambiado."""
     p = _pedido_listo(client, auth_mozo, auth_cajero, mesa, producto)
     r = client.post(f"/api/pedidos/{p['id']}/cobrar", json=_pago(), headers=auth_cajero)
@@ -174,7 +174,8 @@ def test_mozo_y_cocinero_no_pueden_cobrar(client, auth_mozo, listo, db, rol_admi
     assert client.post(f"/api/pedidos/{listo['id']}/cobrar", json=_pago(), headers=h).status_code == 403
 
 
-def test_admin_puede_cobrar(client, auth_admin, listo):
+def test_admin_puede_cobrar(client, auth_admin, listo, usuario_admin, db):
+    db.add(models.Caja(usuario_id=usuario_admin.id, monto_inicial=0)); db.commit()
     assert client.post(f"/api/pedidos/{listo['id']}/cobrar", json=_pago(), headers=auth_admin).status_code == 200
 
 
@@ -184,7 +185,7 @@ def test_total_lo_calcula_el_servidor_aunque_el_cliente_mande_otro(client, auth_
     assert r.status_code == 422
 
 
-def test_total_sin_error_de_coma_flotante(client, auth_mozo, auth_cajero, mesa, producto, serie_boleta, categoria, db):
+def test_total_sin_error_de_coma_flotante(client, auth_mozo, auth_cajero, mesa, producto, serie_boleta, categoria, db, caja_cajero):
     p33 = models.Producto(categoria_id=categoria.id, nombre="Extra", precio=0.1, disponible=True, afecto_igv=True)
     db.add(p33); db.commit()
     p = _pedido_listo(client, auth_mozo, auth_cajero, mesa, p33, cantidad=3)  # 0.30 exacto

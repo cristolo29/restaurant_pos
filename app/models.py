@@ -139,6 +139,39 @@ class SerieComprobante(Base):
     activo      = Column(Boolean, nullable=False, default=True)
 
 
+class Caja(Base):
+    """Turno de caja: se abre con un monto inicial y se cierra con arqueo (efectivo contado vs esperado)."""
+    __tablename__ = "caja"
+    __table_args__ = (
+        CheckConstraint("estado IN ('abierta','cerrada')", name="ck_caja_estado"),
+        Index("uq_caja_abierta_por_usuario", "usuario_id", unique=True, postgresql_where=text("estado = 'abierta'")),
+        CheckConstraint(
+            "monto_inicial >= 0 AND (monto_contado IS NULL OR monto_contado >= 0) "
+            "AND (monto_esperado IS NULL OR monto_esperado >= 0)",
+            name="ck_caja_montos",
+        ),
+        CheckConstraint(
+            "estado <> 'cerrada' OR (monto_contado IS NOT NULL AND cerrada_at IS NOT NULL AND cerrada_por IS NOT NULL)",
+            name="ck_caja_cierre",
+        ),
+        {"schema": "orbezo"},
+    )
+
+    id             = Column(Integer, primary_key=True, index=True)
+    usuario_id     = Column(Integer, ForeignKey("orbezo.usuario.id", name="fk_caja_usuario"), nullable=False)  # quien abre
+    monto_inicial  = Column(Numeric(10, 2), nullable=False, default=0)
+    abierta_at     = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    estado         = Column(String(10), nullable=False, default="abierta")
+    cerrada_at     = Column(DateTime(timezone=True))
+    monto_contado  = Column(Numeric(10, 2))   # efectivo contado al cierre
+    monto_esperado = Column(Numeric(10, 2))   # monto_inicial + cobrado en efectivo (se fija al cerrar)
+    diferencia     = Column(Numeric(10, 2))   # contado - esperado
+    observaciones  = Column(String(500))
+    cerrada_por    = Column(Integer, ForeignKey("orbezo.usuario.id", name="fk_caja_cerrada_por"))
+
+    usuario = relationship("Usuario", foreign_keys=[usuario_id])
+
+
 class Comprobante(Base):
     __tablename__ = "comprobante"
     __table_args__ = (
@@ -152,7 +185,8 @@ class Comprobante(Base):
 
     id                  = Column(Integer, primary_key=True, index=True)
     pedido_id           = Column(Integer, ForeignKey("orbezo.pedido.id"), nullable=False)
-    usuario_id          = Column(Integer, ForeignKey("orbezo.usuario.id"), nullable=False)
+    usuario_id          = Column(Integer, ForeignKey("orbezo.usuario.id"), nullable=False)  # quien cobró
+    caja_id             = Column(Integer, ForeignKey("orbezo.caja.id", name="fk_comprobante_caja"))  # NULL en históricos
     serie_id            = Column(Integer, ForeignKey("orbezo.serie_comprobante.id"), nullable=False)
     tipo                = Column(String(20), nullable=False)
     serie               = Column(String(4), nullable=False)

@@ -68,8 +68,9 @@ def emitir_comprobante(
     if pedido.estado != "cerrado":
         raise HTTPException(status_code=400, detail="Solo se puede emitir comprobante de un pedido cerrado")
 
+    caja = cobro.caja_abierta_de(db, current_user.id, bloquear=True)  # sin caja abierta queda NULL (compat.)
     comprobante = cobro.emitir_comprobante_de_pedido(
-        db, pedido, datos, current_user, cobro.items_cobrables(db, pedido.id),
+        db, pedido, datos, current_user, cobro.items_cobrables(db, pedido.id), caja.id if caja else None,
     )
     db.commit()
     db.refresh(comprobante)

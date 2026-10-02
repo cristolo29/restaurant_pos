@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import IntegrityError
 from app.integridad import manejar_integrity_error
-from app.routers import auth, categorias, productos, mesas, pedidos, comprobantes, usuarios, salones, dashboard
+from app.routers import auth, categorias, productos, mesas, pedidos, comprobantes, usuarios, salones, dashboard, caja
 
 app = FastAPI(
     title="Orbezo Resto Bar API",
@@ -31,6 +31,7 @@ app.include_router(comprobantes.router)
 app.include_router(usuarios.router)
 app.include_router(salones.router)
 app.include_router(dashboard.router)
+app.include_router(caja.router)
 
 
 @app.get("/")

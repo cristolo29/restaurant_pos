@@ -194,3 +194,13 @@ def producto(db, categoria):
     db.commit()
     db.refresh(p)
     return p
+
+
+@pytest.fixture
+def caja_cajero(db, usuario_cajero):
+    """Caja abierta del cajero de pruebas (fondo S/ 100)."""
+    c = models.Caja(usuario_id=usuario_cajero.id, monto_inicial=100, estado="abierta")
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    return c

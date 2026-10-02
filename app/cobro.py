@@ -61,6 +61,13 @@ def validar_pago(metodo_pago: str, monto_pagado, vuelto, total) -> None:
         raise HTTPException(status_code=422, detail="Método de pago no válido")
 
 
+def caja_abierta_de(db: Session, usuario_id: int, bloquear: bool = False):
+    """Caja abierta del usuario, o None. `bloquear` toma FOR SHARE: un cierre simultáneo
+    (FOR UPDATE) espera a que este cobro termine, así ningún comprobante cae en una caja cerrada."""
+    q = db.query(models.Caja).filter(models.Caja.usuario_id == usuario_id, models.Caja.estado == "abierta")
+    return (q.with_for_update(read=True) if bloquear else q).first()
+
+
 def items_cobrables(db: Session, pedido_id: int) -> list:
     return db.query(models.PedidoItem).filter(
         models.PedidoItem.pedido_id == pedido_id,
@@ -80,7 +87,7 @@ def calcular_totales(items) -> dict:
     }
 
 
-def emitir_comprobante_de_pedido(db: Session, pedido: models.Pedido, datos, cobrador: models.Usuario, items):
+def emitir_comprobante_de_pedido(db: Session, pedido: models.Pedido, datos, cobrador: models.Usuario, items, caja_id=None):
     """Crea comprobante + ítems y avanza el correlativo, sin commit.
 
     `datos` expone tipo, metodo_pago, monto_pagado, vuelto, nro_doc_cliente, razon_social, direccion_cliente.
@@ -110,6 +117,7 @@ def emitir_comprobante_de_pedido(db: Session, pedido: models.Pedido, datos, cobr
     comprobante = models.Comprobante(
         pedido_id=pedido.id,
         usuario_id=cobrador.id,
+        caja_id=caja_id,
         serie_id=serie.id,
         tipo=datos.tipo,
         serie=serie.serie,

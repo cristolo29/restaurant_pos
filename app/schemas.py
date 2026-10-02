@@ -1,3 +1,4 @@
+from decimal import Decimal
 from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List, Literal
 
@@ -228,3 +229,14 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     usuario: LoginResponse
+
+
+# --- Caja ---
+
+class CajaAbrir(BaseModel):
+    monto_inicial: Decimal = Field(ge=0, le=Decimal("9999999.99"), max_digits=10, decimal_places=2)
+
+
+class CajaCerrar(BaseModel):
+    monto_contado: Decimal = Field(ge=0, le=Decimal("9999999.99"), max_digits=10, decimal_places=2)
+    observaciones: Optional[str] = Field(default=None, max_length=500)
