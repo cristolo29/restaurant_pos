@@ -159,8 +159,8 @@ class PedidoDetalleResponse(PedidoResponse):
 
 # --- Comprobantes ---
 
-class ComprobanteCreate(BaseModel):
-    pedido_id:          int
+class CobroCreate(BaseModel):
+    """Datos de pago y de cliente para cobrar un pedido (el total lo calcula el servidor)."""
     tipo:               Literal["boleta", "factura"]
     metodo_pago:        Literal["efectivo", "tarjeta", "yape", "plin"] = "efectivo"
     monto_pagado:       float = Field(default=0, ge=0)
@@ -168,6 +168,10 @@ class ComprobanteCreate(BaseModel):
     nro_doc_cliente:    Optional[str] = None
     razon_social:       Optional[str] = None
     direccion_cliente:  Optional[str] = None
+
+
+class ComprobanteCreate(CobroCreate):
+    pedido_id:          int
 
 
 class ComprobanteItemResponse(BaseModel):

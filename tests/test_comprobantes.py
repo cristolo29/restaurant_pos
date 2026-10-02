@@ -45,7 +45,7 @@ def test_emitir_boleta(client, auth_cajero, auth_mozo, mesa, usuario_mozo, produ
         "tipo":        "boleta",
         "metodo_pago": "efectivo",
         "monto_pagado": 60.0,
-        "vuelto":      3.96,
+        "vuelto":      4.0,
     }, headers=auth_cajero)
     assert r.status_code == 200
     data = r.json()

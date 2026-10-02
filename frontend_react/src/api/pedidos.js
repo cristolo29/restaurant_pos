@@ -18,5 +18,10 @@ export const cancelarPedido = (pedido_id, motivo) =>
 export const cancelarItem = (item_id, motivo) =>
   api.put(`/api/pedidos/items/${item_id}/estado`, { estado: 'cancelado', motivo }).then(r => r.data)
 
+// Cobro atómico: cierra el pedido, libera la mesa y emite el comprobante en una sola llamada.
+export const cobrarPedido = (pedido_id, datos) =>
+  api.post(`/api/pedidos/${pedido_id}/cobrar`, datos).then(r => r.data)
+
+// Obsoleto: usar cobrarPedido.
 export const cerrarPedido = (pedido_id) =>
   api.put(`/api/pedidos/${pedido_id}/cerrar`).then(r => r.data)

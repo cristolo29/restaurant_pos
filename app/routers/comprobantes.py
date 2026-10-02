@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app import models, schemas
+from app import models, schemas, cobro
 from app.security import require_roles
 
 router = APIRouter(prefix="/api/comprobantes", tags=["Comprobantes"])
@@ -54,90 +54,23 @@ def listar_comprobantes(db: Session = Depends(get_db), _=_admin):
 
 
 @router.post("", response_model=schemas.ComprobanteResponse)
-def emitir_comprobante(datos: schemas.ComprobanteCreate, db: Session = Depends(get_db), _=_operador):
+def emitir_comprobante(
+    datos: schemas.ComprobanteCreate,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(require_roles("cajero", "admin")),
+):
+    """OBSOLETO: usa `POST /api/pedidos/{id}/cobrar`, que cierra el pedido y emite el comprobante
+    en una sola transacción. Se mantiene por compatibilidad (pedido ya cerrado con `cerrar`);
+    valida el pago contra el total recalculado igual que `/cobrar`."""
     pedido = db.query(models.Pedido).filter(models.Pedido.id == datos.pedido_id).first()
     if not pedido:
         raise HTTPException(status_code=404, detail="El pedido no existe")
     if pedido.estado != "cerrado":
         raise HTTPException(status_code=400, detail="Solo se puede emitir comprobante de un pedido cerrado")
 
-    existente = db.query(models.Comprobante).filter(
-        models.Comprobante.pedido_id == datos.pedido_id
-    ).first()
-    if existente:
-        raise HTTPException(status_code=400, detail=f"Ya existe el comprobante {existente.numero}")
-
-    if datos.tipo == "factura" and not datos.nro_doc_cliente:
-        raise HTTPException(status_code=400, detail="La factura requiere RUC del cliente")
-
-    serie = db.query(models.SerieComprobante).filter(
-        models.SerieComprobante.tipo   == datos.tipo,
-        models.SerieComprobante.activo == True,
-    ).with_for_update().first()
-    if not serie:
-        raise HTTPException(status_code=400, detail=f"No hay serie activa para {datos.tipo}")
-
-    items_pedido = db.query(models.PedidoItem).filter(
-        models.PedidoItem.pedido_id == datos.pedido_id,
-        models.PedidoItem.estado    != "cancelado",
-    ).all()
-
-    total_gravado  = sum(float(i.subtotal) for i in items_pedido if i.producto and i.producto.afecto_igv)
-    total_inafecto = sum(float(i.subtotal) for i in items_pedido if not i.producto or not i.producto.afecto_igv)
-    igv      = total_gravado * 0.18 / 1.18
-    subtotal = (total_gravado - igv) + total_inafecto
-    bruto    = total_gravado + total_inafecto
-
-    tipo_doc = "6" if datos.tipo == "factura" else "1"
-    comprobante = models.Comprobante(
-        pedido_id         = datos.pedido_id,
-        usuario_id        = pedido.usuario_id,
-        serie_id          = serie.id,
-        tipo              = datos.tipo,
-        serie             = serie.serie,
-        correlativo       = serie.correlativo,
-        tipo_doc_cliente  = tipo_doc,
-        metodo_pago       = datos.metodo_pago,
-        monto_pagado      = round(datos.monto_pagado, 2),
-        vuelto            = round(datos.vuelto, 2),
-        nro_doc_cliente   = datos.nro_doc_cliente,
-        razon_social      = datos.razon_social,
-        direccion_cliente = datos.direccion_cliente,
-        subtotal          = round(subtotal, 2),
-        igv               = round(igv, 2),
-        total             = round(bruto, 2),
+    comprobante = cobro.emitir_comprobante_de_pedido(
+        db, pedido, datos, current_user, cobro.items_cobrables(db, pedido.id),
     )
-    db.add(comprobante)
-    db.flush()
-
-    # Agrupar por producto antes de guardar en ComprobanteItem
-    grupos: dict = {}
-    for item in items_pedido:
-        pid = item.producto_id
-        if pid in grupos:
-            grupos[pid]["cantidad"] += float(item.cantidad)
-            grupos[pid]["subtotal"] += float(item.subtotal)
-        else:
-            grupos[pid] = {
-                "descripcion": item.producto.nombre if item.producto else "Producto",
-                "cantidad":    float(item.cantidad),
-                "precio_unit": float(item.precio_unit),
-                "subtotal":    float(item.subtotal),
-                "afecto_igv":  item.producto.afecto_igv if item.producto else True,
-            }
-
-    for g in grupos.values():
-        igv_item = (g["subtotal"] * 0.18 / 1.18) if g["afecto_igv"] else 0.0
-        db.add(models.ComprobanteItem(
-            comprobante_id = comprobante.id,
-            descripcion    = g["descripcion"],
-            cantidad       = g["cantidad"],
-            precio_unit    = g["precio_unit"],
-            subtotal       = round(g["subtotal"], 2),
-            igv_item       = round(igv_item, 2),
-        ))
-
-    serie.correlativo += 1
     db.commit()
     db.refresh(comprobante)
     return _serializar(comprobante)

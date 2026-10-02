@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app import models, schemas
+from app import models, schemas, cobro
+from app.routers.comprobantes import _serializar as _serializar_comprobante
 from app.security import get_current_user, require_roles
 
 router = APIRouter(prefix="/api/pedidos", tags=["Pedidos"])
@@ -233,8 +234,64 @@ def cancelar_pedido(
     }
 
 
+@router.post("/{pedido_id}/cobrar")
+def cobrar_pedido(
+    pedido_id: int,
+    datos: schemas.CobroCreate,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(require_roles("cajero", "admin")),
+):
+    """Cobro atómico: valida, cierra el pedido, libera la mesa, entrega los ítems y emite
+    el comprobante en UNA transacción. Si algo falla, no cambia nada (el pedido sigue abierto)."""
+    try:
+        # FOR UPDATE: dos cobros simultáneos del mismo pedido se serializan; el segundo ve «cerrado».
+        pedido = db.query(models.Pedido).filter(models.Pedido.id == pedido_id).with_for_update().first()
+        if not pedido:
+            raise HTTPException(status_code=404, detail="El pedido no existe")
+        if pedido.estado != "abierto":
+            raise HTTPException(status_code=409, detail=f"El pedido ya está {pedido.estado}; no se puede cobrar")
+
+        en_cocina = db.query(models.PedidoItem).filter(
+            models.PedidoItem.pedido_id == pedido_id,
+            models.PedidoItem.estado.in_(["pendiente", "en_preparacion"]),
+        ).count()
+        if en_cocina > 0:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Hay {en_cocina} ítem(s) aún en cocina. Espera a que estén listos antes de cobrar.",
+            )
+
+        items = cobro.items_cobrables(db, pedido_id)
+        mesa = db.query(models.Mesa).filter(models.Mesa.id == pedido.mesa_id).first()
+
+        pedido.estado = "cerrado"
+        if mesa:
+            mesa.estado = "disponible"
+        for item in items:
+            item.estado = "entregado"
+        db.flush()
+
+        comprobante = cobro.emitir_comprobante_de_pedido(db, pedido, datos, current_user, items)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    db.refresh(comprobante)
+    return {
+        "mensaje":           "¡Cobro exitoso!",
+        "pedido_id":         pedido.id,
+        "mesa_liberada":     mesa.numero if mesa else "Desconocida",
+        "platos_entregados": len(items),
+        "estado_actual":     pedido.estado,
+        "comprobante":       _serializar_comprobante(comprobante),
+    }
+
+
 @router.put("/{pedido_id}/cerrar")
 def cerrar_pedido(pedido_id: int, db: Session = Depends(get_db), _=_cajero):
+    """OBSOLETO: usa `POST /api/pedidos/{id}/cobrar` (cierra y emite el comprobante atómicamente).
+    Se mantiene por compatibilidad; no valida pago ni emite comprobante."""
     pedido = db.query(models.Pedido).filter(models.Pedido.id == pedido_id).first()
     if not pedido:
         raise HTTPException(status_code=404, detail="El pedido no existe")
