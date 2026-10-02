@@ -132,7 +132,8 @@ def test_segundo_pedido_abierto_en_la_misma_mesa(db, mesa, usuario_mozo):
 
 def test_pedido_nuevo_tras_cerrar_o_anular(db, mesa, usuario_mozo):
     for estado in ("cerrado", "anulado"):
-        db.add(models.Pedido(mesa_id=mesa.id, usuario_id=usuario_mozo.id, estado=estado))
+        db.add(models.Pedido(mesa_id=mesa.id, usuario_id=usuario_mozo.id, estado=estado,
+                             motivo_anulacion="prueba" if estado == "anulado" else None))  # ck_pedido_anulacion
     db.commit()
     db.add(models.Pedido(mesa_id=mesa.id, usuario_id=usuario_mozo.id, estado="abierto"))
     db.commit()

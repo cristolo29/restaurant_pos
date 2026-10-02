@@ -103,6 +103,7 @@ class Pedido(Base):
         CheckConstraint("tipo IN ('en_mesa','para_llevar','delivery')", name="ck_pedido_tipo"),
         Index("uq_pedido_abierto_por_mesa", "mesa_id", unique=True, postgresql_where=text("estado = 'abierto'")),
         CheckConstraint("subtotal >= 0 AND igv >= 0 AND total >= 0", name="ck_pedido_montos"),
+        CheckConstraint("estado <> 'anulado' OR motivo_anulacion IS NOT NULL", name="ck_pedido_anulacion"),
         {"schema": "orbezo"},
     )
 
@@ -115,6 +116,9 @@ class Pedido(Base):
     igv         = Column(Numeric(10, 2), default=0)
     total       = Column(Numeric(10, 2), default=0)
     created_at  = Column(DateTime(timezone=True), server_default=func.now())
+    anulado_por      = Column(Integer, ForeignKey("orbezo.usuario.id", name="fk_pedido_anulado_por"))
+    anulado_at       = Column(DateTime(timezone=True))
+    motivo_anulacion = Column(String(200))
 
     mesa = relationship("Mesa", back_populates="pedidos")
     items = relationship("PedidoItem", back_populates="pedido")
@@ -198,6 +202,7 @@ class PedidoItem(Base):
         CheckConstraint("estado IN ('pendiente','en_preparacion','listo','entregado','cancelado')", name="ck_pedido_item_estado"),
         CheckConstraint("cantidad > 0", name="ck_pedido_item_cantidad"),
         CheckConstraint("precio_unit >= 0 AND subtotal >= 0", name="ck_pedido_item_montos"),
+        CheckConstraint("estado <> 'cancelado' OR motivo_cancelacion IS NOT NULL", name="ck_pedido_item_cancelacion"),
         {"schema": "orbezo"},
     )
 
@@ -209,6 +214,9 @@ class PedidoItem(Base):
     subtotal = Column(Numeric(10, 2), nullable=False)
     estado = Column(String(20), default="pendiente")  # pendiente, en_preparacion, listo, cancelado
     nota = Column(String)
+    cancelado_por      = Column(Integer, ForeignKey("orbezo.usuario.id", name="fk_pedido_item_cancelado_por"))
+    cancelado_at       = Column(DateTime(timezone=True))
+    motivo_cancelacion = Column(String(200))
 
     pedido   = relationship("Pedido", back_populates="items")
     producto = relationship("Producto")

@@ -118,6 +118,11 @@ CREATE TABLE IF NOT EXISTS orbezo.pedido (
     igv        NUMERIC(10,2) DEFAULT 0,
     total      NUMERIC(10,2) DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
+    anulado_por      INTEGER,
+    anulado_at       TIMESTAMPTZ,
+    motivo_anulacion VARCHAR(200),
+    CONSTRAINT fk_pedido_anulado_por FOREIGN KEY (anulado_por) REFERENCES orbezo.usuario(id),
+    CONSTRAINT ck_pedido_anulacion CHECK (estado <> 'anulado' OR motivo_anulacion IS NOT NULL),
     CONSTRAINT ck_pedido_estado CHECK (estado IN ('abierto','cerrado','anulado')),
     CONSTRAINT ck_pedido_tipo CHECK (tipo IN ('en_mesa','para_llevar','delivery')),
     CONSTRAINT ck_pedido_montos CHECK (subtotal >= 0 AND igv >= 0 AND total >= 0)
@@ -137,6 +142,11 @@ CREATE TABLE IF NOT EXISTS orbezo.pedido_item (
     subtotal    NUMERIC(10,2) NOT NULL,
     estado      VARCHAR(20) DEFAULT 'pendiente',
     nota        VARCHAR,
+    cancelado_por      INTEGER,
+    cancelado_at       TIMESTAMPTZ,
+    motivo_cancelacion VARCHAR(200),
+    CONSTRAINT fk_pedido_item_cancelado_por FOREIGN KEY (cancelado_por) REFERENCES orbezo.usuario(id),
+    CONSTRAINT ck_pedido_item_cancelacion CHECK (estado <> 'cancelado' OR motivo_cancelacion IS NOT NULL),
     CONSTRAINT ck_pedido_item_estado CHECK (estado IN ('pendiente','en_preparacion','listo','entregado','cancelado')),
     CONSTRAINT ck_pedido_item_cantidad CHECK (cantidad > 0),
     CONSTRAINT ck_pedido_item_montos CHECK (precio_unit >= 0 AND subtotal >= 0)

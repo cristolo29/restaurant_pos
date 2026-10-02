@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List, Literal
 
 
@@ -91,6 +91,27 @@ class UsuarioResponse(BaseModel):
 
 class ItemEstadoUpdate(BaseModel):
     estado: Literal["pendiente", "en_preparacion", "listo", "entregado", "cancelado"]
+    motivo: Optional[str] = Field(default=None, max_length=200)
+
+    @model_validator(mode="after")
+    def _motivo_si_cancela(self):
+        if self.estado == "cancelado":
+            if not self.motivo or len(self.motivo.strip()) < 3:
+                raise ValueError("Cancelar un ítem exige un motivo de al menos 3 caracteres")
+            self.motivo = self.motivo.strip()
+        return self
+
+
+class MotivoAnulacion(BaseModel):
+    motivo: str = Field(min_length=3, max_length=200)
+
+    @field_validator("motivo")
+    @classmethod
+    def _sin_espacios_sobrantes(cls, v):
+        v = v.strip()
+        if len(v) < 3:
+            raise ValueError("El motivo debe tener al menos 3 caracteres")
+        return v
 
 
 class PedidoItemCreate(BaseModel):
@@ -115,7 +136,7 @@ class PedidoItemResponse(PedidoItemCreate):
 
 class PedidoCreate(BaseModel):
     mesa_id: int
-    usuario_id: int
+    usuario_id: Optional[int] = None  # se ignora: el pedido se abre a nombre del usuario autenticado
     tipo: Literal["en_mesa", "para_llevar", "delivery"] = "en_mesa"
 
 

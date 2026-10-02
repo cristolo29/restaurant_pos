@@ -10,6 +10,10 @@ MENSAJES = {
     "uq_salon_nombre": "Ya existe un registro con ese nombre",
     "uq_categoria_nombre": "Ya existe un registro con ese nombre",
     "uq_pedido_abierto_por_mesa": "La mesa ya tiene un pedido abierto",
+    "ck_pedido_anulacion": "Anular un pedido exige indicar el motivo",
+    "ck_pedido_item_cancelacion": "Cancelar un ítem exige indicar el motivo",
+    "fk_pedido_anulado_por": "El usuario que anula no existe",
+    "fk_pedido_item_cancelado_por": "El usuario que cancela no existe",
     "uq_comprobante_pedido": "El pedido ya tiene comprobante",
     "uq_comprobante_serie_correlativo": "El correlativo ya fue emitido; reintenta",
 }

@@ -127,6 +127,8 @@ def eliminar_usuario(
     tiene_historial = (
         db.query(models.Pedido).filter(models.Pedido.usuario_id == usuario.id).first()
         or db.query(models.Comprobante).filter(models.Comprobante.usuario_id == usuario.id).first()
+        or db.query(models.Pedido).filter(models.Pedido.anulado_por == usuario.id).first()
+        or db.query(models.PedidoItem).filter(models.PedidoItem.cancelado_por == usuario.id).first()
     )
     if tiene_historial:
         raise HTTPException(status_code=409, detail="El usuario tiene pedidos o comprobantes; desactívalo en vez de eliminarlo")

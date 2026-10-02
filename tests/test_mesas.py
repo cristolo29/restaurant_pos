@@ -12,6 +12,7 @@ def _pedido_con_items(db, mesa, usuario, producto, estados, estado_pedido="abier
         db.add(models.PedidoItem(
             pedido_id=pedido.id, producto_id=producto.id, cantidad=1,
             precio_unit=28, subtotal=28, estado=estado,
+            motivo_cancelacion="prueba" if estado == "cancelado" else None,  # ck_pedido_item_cancelacion
         ))
     db.commit()
     return pedido
