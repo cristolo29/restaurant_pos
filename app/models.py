@@ -169,8 +169,10 @@ class Caja(Base):
     observaciones  = Column(String(500))
     cerrada_por    = Column(Integer, ForeignKey("orbezo.usuario.id", name="fk_caja_cerrada_por"))
     conteo         = Column(JSONB)            # {"200": 0, "0.10": 3, ...}: cantidad por denominación (opcional)
+    autorizado_por = Column(Integer, ForeignKey("orbezo.usuario.id", name="fk_caja_autorizado_por"))  # admin que autorizó una diferencia fuera de tolerancia
 
     usuario = relationship("Usuario", foreign_keys=[usuario_id])
+    autorizador = relationship("Usuario", foreign_keys=[autorizado_por])
     movimientos = relationship("CajaMovimiento", back_populates="caja", order_by="CajaMovimiento.id")
 
 

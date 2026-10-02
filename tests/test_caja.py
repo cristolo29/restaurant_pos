@@ -108,15 +108,15 @@ def test_cerrar_con_faltante_exige_observaciones_422(client, auth_cajero, caja_c
     assert r.status_code == 422
     db.expire_all()
     assert db.get(models.Caja, caja_con_ventas.id).estado == "abierta"
-    r = client.post("/api/caja/cerrar", json={"monto_contado": 150.0, "observaciones": "Faltó cambio"}, headers=auth_cajero)
+    r = client.post("/api/caja/cerrar", json={"monto_contado": 155.0, "observaciones": "Faltó cambio"}, headers=auth_cajero)
     assert r.status_code == 200
-    assert r.json()["diferencia"] == -6.0 and r.json()["observaciones"] == "Faltó cambio"
+    assert r.json()["diferencia"] == -1.0 and r.json()["observaciones"] == "Faltó cambio"
 
 
 def test_sobrante_tambien_exige_observaciones(client, auth_cajero, caja_con_ventas):
-    assert client.post("/api/caja/cerrar", json={"monto_contado": 160.5}, headers=auth_cajero).status_code == 422
-    r = client.post("/api/caja/cerrar", json={"monto_contado": 160.5, "observaciones": "Propina"}, headers=auth_cajero)
-    assert r.json()["diferencia"] == 4.5
+    assert client.post("/api/caja/cerrar", json={"monto_contado": 157.5}, headers=auth_cajero).status_code == 422
+    r = client.post("/api/caja/cerrar", json={"monto_contado": 157.5, "observaciones": "Propina"}, headers=auth_cajero)
+    assert r.json()["diferencia"] == 1.5
 
 
 def test_decimales_sin_error_de_coma_flotante(client, auth_cajero, caja_cajero, db):

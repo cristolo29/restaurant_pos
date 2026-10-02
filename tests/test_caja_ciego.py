@@ -36,9 +36,9 @@ def test_admin_ve_el_esperado_de_su_propia_caja_abierta(client, auth_admin, usua
 
 
 def test_cerrar_devuelve_esperado_y_diferencia_despues_de_cerrar(client, auth_cajero, caja_con_ventas):
-    r = client.post("/api/caja/cerrar", json={"monto_contado": 150, "observaciones": "Faltó cambio"}, headers=auth_cajero)
+    r = client.post("/api/caja/cerrar", json={"monto_contado": 155, "observaciones": "Faltó cambio"}, headers=auth_cajero)
     d = r.json()
-    assert d["estado"] == "cerrada" and d["monto_esperado"] == 156.0 and d["diferencia"] == -6.0
+    assert d["estado"] == "cerrada" and d["monto_esperado"] == 156.0 and d["diferencia"] == -1.0
     # y la caja ya cerrada conserva esperado y diferencia para el cajero (historial, arqueo)
     h = client.get(f"/api/caja/{d['id']}", headers=auth_cajero).json()
-    assert h["monto_esperado"] == 156.0 and h["diferencia"] == -6.0
+    assert h["monto_esperado"] == 156.0 and h["diferencia"] == -1.0

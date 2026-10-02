@@ -42,3 +42,5 @@ class LimitadorIntentos:
 
 
 login_limiter = LimitadorIntentos()
+# Intentos fallidos de PIN de autorización al cerrar la caja (clave: usuario que cierra).
+autorizacion_limiter = LimitadorIntentos()

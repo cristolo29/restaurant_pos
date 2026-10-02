@@ -6,7 +6,9 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.cobro import CENTAVO, DENOMINACIONES, caja_abierta_de, clave_denominacion, redondear
 from app.database import get_db
-from app import models, schemas
+from app import caja_config, models, schemas
+from app.pinhash import verify_pin
+from app.ratelimit import autorizacion_limiter
 from app.security import require_roles
 
 router = APIRouter(prefix="/api/caja", tags=["Caja"])
@@ -79,6 +81,41 @@ def _normalizar_conteo(conteo: dict, contado: Decimal) -> dict:
     return normal
 
 
+MENSAJE_AUTORIZACION = "Diferencia fuera de tolerancia: requiere autorización de un administrador"
+OBSERVACIONES_AUTOAUTORIZACION = 10
+
+
+def _autorizador(db: Session, user: models.Usuario, pin) -> models.Usuario:
+    """Admin activo que autoriza una diferencia fuera de tolerancia, verificado con `verify_pin`.
+
+    Con más de un admin activo, el PIN debe ser de OTRO distinto de quien cierra; con uno solo se acepta el suyo.
+    El PIN no se registra ni se devuelve, los fallos cuentan para el limitador y el mensaje es siempre el mismo
+    (no revela qué administradores existen)."""
+    clave = f"caja:{user.id}"
+    espera = autorizacion_limiter.segundos_bloqueado(clave)
+    if espera:
+        raise HTTPException(
+            status_code=429,
+            detail="Demasiados intentos fallidos de autorización. Intenta de nuevo más tarde.",
+            headers={"Retry-After": str(espera)},
+        )
+    if not pin:  # no es un intento de adivinar: simplemente falta
+        raise HTTPException(status_code=403, detail=MENSAJE_AUTORIZACION)
+    admins = db.query(models.Usuario).join(models.Rol, models.Usuario.rol_id == models.Rol.id).filter(
+        models.Rol.nombre == "admin", models.Usuario.activo == True, models.Usuario.pin.isnot(None),  # noqa: E712
+    ).all()
+    elegibles = [a for a in admins if a.id != user.id] if len(admins) > 1 else admins
+    autorizador = None
+    for a in elegibles:  # sin cortar al primer acierto: el tiempo no revela cuántos admins hay
+        if verify_pin(pin, a.pin) and autorizador is None:
+            autorizador = a
+    if autorizador is None:
+        autorizacion_limiter.registrar_fallo(clave)
+        raise HTTPException(status_code=403, detail=MENSAJE_AUTORIZACION)
+    autorizacion_limiter.reiniciar(clave)
+    return autorizador
+
+
 def _serializar_movimiento(m: models.CajaMovimiento) -> dict:
     return {
         "id": m.id,
@@ -126,6 +163,8 @@ def _serializar_caja(db: Session, caja: models.Caja) -> dict:
         "observaciones": caja.observaciones,
         "conteo": caja.conteo,
         "cerrada_por": caja.cerrada_por,
+        "autorizado_por": caja.autorizado_por,
+        "autorizado_por_nombre": caja.autorizador.nombre if caja.autorizador else None,
         "pedidos_abiertos": pedidos_abiertos,
         "advertencia": (
             f"Hay {pedidos_abiertos} pedido(s) abierto(s) sin cobrar" if pedidos_abiertos else None
@@ -171,12 +210,21 @@ def cerrar_caja(datos: schemas.CajaCerrar, db: Session = Depends(get_db), user: 
             status_code=422,
             detail="Hay diferencia entre lo contado y lo esperado: explica el motivo (mínimo 3 caracteres)",
         )
+    autorizador = None
+    if abs(diferencia) > caja_config.TOLERANCIA:
+        autorizador = _autorizador(db, user, datos.pin_autorizacion)
+        if autorizador.id == user.id and len(observaciones) < OBSERVACIONES_AUTOAUTORIZACION:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Al autorizarte a ti mismo, las observaciones deben tener al menos {OBSERVACIONES_AUTOAUTORIZACION} caracteres",
+            )
 
     caja.estado = "cerrada"
     caja.cerrada_at = datetime.now(timezone.utc)
     caja.cerrada_por = user.id
     caja.monto_contado = contado
     caja.conteo = conteo
+    caja.autorizado_por = autorizador.id if autorizador else None
     caja.monto_esperado = esperado
     caja.diferencia = diferencia
     caja.observaciones = observaciones or None

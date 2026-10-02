@@ -1,5 +1,5 @@
 from decimal import Decimal
-from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 from typing import Annotated, Optional, List, Literal
 
 
@@ -238,10 +238,14 @@ class CajaAbrir(BaseModel):
 
 
 class CajaCerrar(BaseModel):
+    # hide_input_in_errors: un error de validación del PIN de autorización nunca lo repite en la respuesta.
+    model_config = ConfigDict(hide_input_in_errors=True)
     monto_contado: Decimal = Field(ge=0, le=Decimal("9999999.99"), max_digits=10, decimal_places=2)
     observaciones: Optional[str] = Field(default=None, max_length=500)
     # Cantidad de billetes/monedas por denominación; el servidor verifica que sume monto_contado.
     conteo: Optional[dict[str, Annotated[int, Field(strict=True, ge=0, le=100000)]]] = None
+    # PIN de un administrador: solo si la diferencia supera la tolerancia. Nunca se registra ni se devuelve.
+    pin_autorizacion: Optional[str] = Field(default=None, repr=False)
 
 
 class CajaMovimientoCrear(BaseModel):

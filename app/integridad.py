@@ -20,6 +20,7 @@ MENSAJES = {
     "ck_caja_cierre": "Cerrar la caja exige el efectivo contado, la fecha y quién la cierra",
     "fk_caja_usuario": "El usuario que abre la caja no existe",
     "fk_caja_cerrada_por": "El usuario que cierra la caja no existe",
+    "fk_caja_autorizado_por": "El administrador que autoriza la diferencia no existe",
     "ck_caja_mov_tipo": "El tipo de movimiento debe ser ingreso, egreso o retiro",
     "ck_caja_mov_monto": "El monto del movimiento debe ser mayor a cero",
     "ck_caja_mov_motivo": "El motivo del movimiento debe tener entre 3 y 200 caracteres",
