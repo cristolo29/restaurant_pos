@@ -22,7 +22,7 @@ class CategoriaResponse(CategoriaCreate):
 class ProductoCreate(BaseModel):
     categoria_id: int
     nombre: str
-    precio: float
+    precio: float = Field(ge=0)
     disponible: bool = True
     afecto_igv: bool = True
 
@@ -39,7 +39,7 @@ class ProductoResponse(ProductoCreate):
 class MesaCreate(BaseModel):
     salon_id: int
     numero: str
-    capacidad: int = 4
+    capacidad: int = Field(default=4, gt=0)
 
 
 class MesaResponse(MesaCreate):
@@ -95,7 +95,7 @@ class ItemEstadoUpdate(BaseModel):
 
 class PedidoItemCreate(BaseModel):
     producto_id: int
-    cantidad: int = 1
+    cantidad: int = Field(default=1, gt=0)
     nota: Optional[str] = None
 
 
@@ -116,7 +116,7 @@ class PedidoItemResponse(PedidoItemCreate):
 class PedidoCreate(BaseModel):
     mesa_id: int
     usuario_id: int
-    tipo: str = "en_mesa"
+    tipo: Literal["en_mesa", "para_llevar", "delivery"] = "en_mesa"
 
 
 class PedidoResponse(PedidoCreate):
@@ -140,10 +140,10 @@ class PedidoDetalleResponse(PedidoResponse):
 
 class ComprobanteCreate(BaseModel):
     pedido_id:          int
-    tipo:               str  # "boleta" | "factura"
-    metodo_pago:        str = "efectivo"
-    monto_pagado:       float = 0
-    vuelto:             float = 0
+    tipo:               Literal["boleta", "factura"]
+    metodo_pago:        Literal["efectivo", "tarjeta", "yape", "plin"] = "efectivo"
+    monto_pagado:       float = Field(default=0, ge=0)
+    vuelto:             float = Field(default=0, ge=0)
     nro_doc_cliente:    Optional[str] = None
     razon_social:       Optional[str] = None
     direccion_cliente:  Optional[str] = None

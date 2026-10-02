@@ -1,6 +1,8 @@
 import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import IntegrityError
+from app.integridad import manejar_integrity_error
 from app.routers import auth, categorias, productos, mesas, pedidos, comprobantes, usuarios, salones, dashboard
 
 app = FastAPI(
@@ -17,6 +19,8 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+app.add_exception_handler(IntegrityError, manejar_integrity_error)
 
 app.include_router(auth.router)
 app.include_router(categorias.router)
