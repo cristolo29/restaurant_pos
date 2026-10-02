@@ -105,7 +105,7 @@ export default function Caja() {
       {paso === 'confirmar' && caja && (
         <ModalConfirm
           titulo={`¿Cerrar la caja de ${caja.usuario_nombre}?`}
-          mensaje={`Se cierra la caja abierta a las ${hora(caja.abierta_at)}. Esperado ${soles(caja.monto_esperado)}, contado ${soles(Number(contado.replace(',', '.')))}: ${dif?.texto.toLowerCase()}. Una caja cerrada no se puede reabrir ni modificar.`}
+          mensaje={`Caja abierta a las ${hora(caja.abierta_at)}: esperado ${soles(caja.monto_esperado)}, contado ${soles(Number(contado.replace(',', '.')))}. Resultado: ${dif?.texto}. Una caja cerrada no se puede reabrir ni modificar.`}
           labelConfirm="Sí, cerrar caja"
           colorConfirm="warning"
           onConfirm={confirmarCierre}
