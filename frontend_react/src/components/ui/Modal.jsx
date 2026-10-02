@@ -57,7 +57,9 @@ export default function Modal({ title, description, onClose, children, className
         aria-describedby={description ? descId : undefined}
         tabIndex={-1}
         className={cn(
-          'w-full sm:max-w-sm bg-surface border border-line rounded-t-panel sm:rounded-panel p-5 sm:p-6 shadow-2xl animate-pop-in max-h-[90dvh] overflow-y-auto',
+          'w-full bg-surface border border-line rounded-t-panel sm:rounded-panel p-5 sm:p-6 shadow-2xl animate-pop-in max-h-[90dvh] overflow-y-auto',
+          // Sin cn/twMerge, dos max-w-* en conflicto los resuelve el orden del CSS (ganaba sm): el ancho por defecto solo aplica si no se pasa uno.
+          /max-w-/.test(className ?? '') ? '' : 'sm:max-w-sm',
           className,
         )}
       >

@@ -1,7 +1,7 @@
 import { Printer } from 'lucide-react'
 import { Button } from './ui'
 import { METODO_LABEL, soles } from '../pages/admin/util'
-import { describirDiferencia, fechaHora } from '../utils/dinero'
+import { DENOMINACIONES, TIPO_MOVIMIENTO, describirDiferencia, deCentimos, fechaHora, hora } from '../utils/dinero'
 
 // El arqueo es un documento en papel: blanco y negro siempre, igual que el comprobante.
 const ESTILO_IMPRESION = `
@@ -24,7 +24,10 @@ const Fila = ({ k, v, fuerte = false }) => (
 /** Arqueo final de una caja cerrada, en formato documento e imprimible. */
 export default function ArqueoCaja({ caja }) {
   const dif = describirDiferencia(Math.round(Number(caja.diferencia) * 100))
-  const etiquetaDif = { cuadra: 'Cuadra', falta: 'Faltante', sobra: 'Sobrante' }[dif.tipo]
+  const icono = { cuadra: '✓', falta: '▼', sobra: '▲' }[dif.tipo]
+  const mov = caja.totales_movimientos ?? { ingreso: 0, egreso: 0, retiro: 0 }
+  const movimientos = caja.movimientos ?? []
+  const filasConteo = DENOMINACIONES.filter(d => (caja.conteo?.[d.clave] ?? 0) > 0)
 
   return (
     <div id="arqueo-caja" className="bg-white text-zinc-900 rounded-control border border-zinc-300 text-base">
@@ -64,13 +67,38 @@ export default function ArqueoCaja({ caja }) {
           <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Efectivo</p>
           <Fila k="Fondo inicial" v={soles(caja.monto_inicial)} />
           <Fila k="+ Cobrado en efectivo" v={soles(caja.por_metodo.efectivo)} />
+          <Fila k="+ Ingresos" v={soles(mov.ingreso)} />
+          <Fila k="− Egresos" v={soles(mov.egreso)} />
+          <Fila k="− Retiros" v={soles(mov.retiro)} />
           <Fila k="Efectivo esperado" v={soles(caja.monto_esperado)} fuerte />
           <Fila k="Efectivo contado" v={soles(caja.monto_contado)} fuerte />
           <div className="border border-zinc-900 rounded-md px-3 py-2 mt-2 flex justify-between items-baseline font-bold">
-            <span>{etiquetaDif}</span>
-            <span className="text-2xl tabular-nums">{dif.centimos === 0 ? soles(0) : `${dif.centimos < 0 ? '−' : '+'} ${soles(Math.abs(caja.diferencia))}`}</span>
+            <span className="text-xl"><span aria-hidden="true">{icono} </span>{dif.texto}</span>
           </div>
         </div>
+
+        {filasConteo.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Conteo por denominaciones</p>
+            {filasConteo.map(d => (
+              <Fila key={d.clave} k={`${d.tipo === 'billete' ? 'Billete' : 'Moneda'} S/ ${d.clave} × ${caja.conteo[d.clave]}`} v={soles(deCentimos(d.centimos * caja.conteo[d.clave]))} />
+            ))}
+          </div>
+        )}
+
+        {(caja.autorizado_por_nombre || movimientos.length > 0) && (
+          <div className="flex flex-col gap-1">
+            {caja.autorizado_por_nombre && <Fila k="Diferencia autorizada por" v={caja.autorizado_por_nombre} />}
+            {movimientos.length > 0 && (
+              <>
+                <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500 mt-2">Movimientos de efectivo</p>
+                {movimientos.map(m => (
+                  <Fila key={m.id} k={`${hora(m.created_at)} ${TIPO_MOVIMIENTO[m.tipo].corto} · ${m.motivo}`} v={`${TIPO_MOVIMIENTO[m.tipo].signo} ${soles(m.monto)}`} />
+                ))}
+              </>
+            )}
+          </div>
+        )}
 
         {caja.observaciones && (
           <div>
