@@ -32,15 +32,44 @@ def _totales(db: Session, caja_id: int):
     return cantidad, por_metodo, sum(por_metodo.values(), Decimal("0.00"))
 
 
-def _esperado(caja: models.Caja, por_metodo) -> Decimal:
-    """Efectivo que debe haber en la gaveta: fondo inicial + lo cobrado en efectivo (total, ya sin vuelto)."""
-    return redondear(Decimal(caja.monto_inicial) + por_metodo["efectivo"])
+TIPOS_MOVIMIENTO = ("ingreso", "egreso", "retiro")
+
+
+def _totales_movimientos(db: Session, caja_id: int) -> dict:
+    filas = db.query(models.CajaMovimiento.tipo, func.coalesce(func.sum(models.CajaMovimiento.monto), 0)).filter(
+        models.CajaMovimiento.caja_id == caja_id,
+    ).group_by(models.CajaMovimiento.tipo).all()
+    totales = {t: Decimal("0.00") for t in TIPOS_MOVIMIENTO}
+    for tipo, total in filas:
+        totales[tipo] = redondear(total)
+    return totales
+
+
+def _esperado(caja: models.Caja, por_metodo, movs) -> Decimal:
+    """Efectivo que debe haber en la gaveta, calculado SOLO en el servidor:
+    fondo + efectivo cobrado (total, ya sin vuelto) + ingresos - egresos - retiros."""
+    return redondear(
+        Decimal(caja.monto_inicial) + por_metodo["efectivo"] + movs["ingreso"] - movs["egreso"] - movs["retiro"]
+    )
+
+
+def _serializar_movimiento(m: models.CajaMovimiento) -> dict:
+    return {
+        "id": m.id,
+        "tipo": m.tipo,
+        "monto": _num(m.monto),
+        "motivo": m.motivo,
+        "usuario_id": m.usuario_id,
+        "usuario_nombre": m.usuario.nombre if m.usuario else None,
+        "created_at": m.created_at.isoformat() if m.created_at else None,
+    }
 
 
 def serializar_caja(db: Session, caja: models.Caja) -> dict:
     cantidad, por_metodo, total = _totales(db, caja.id)
     abierta = caja.estado == "abierta"
-    esperado = _esperado(caja, por_metodo) if abierta else redondear(caja.monto_esperado)
+    movs = _totales_movimientos(db, caja.id)
+    esperado = _esperado(caja, por_metodo, movs) if abierta else redondear(caja.monto_esperado)
     pedidos_abiertos = db.query(models.Pedido).filter(models.Pedido.estado == "abierto").count() if abierta else None
     return {
         "id": caja.id,
@@ -53,6 +82,9 @@ def serializar_caja(db: Session, caja: models.Caja) -> dict:
         "comprobantes": cantidad,
         "por_metodo": {m: _num(v) for m, v in por_metodo.items()},
         "total_cobrado": _num(total),
+        "efectivo_cobrado": _num(por_metodo["efectivo"]),
+        "totales_movimientos": {t: _num(v) for t, v in movs.items()},
+        "movimientos": [_serializar_movimiento(m) for m in caja.movimientos],
         "monto_esperado": _num(esperado),
         "monto_contado": _num(caja.monto_contado),
         "diferencia": _num(caja.diferencia),
@@ -93,7 +125,7 @@ def cerrar_caja(datos: schemas.CajaCerrar, db: Session = Depends(get_db), user: 
         raise HTTPException(status_code=409, detail="No tienes una caja abierta para cerrar")
 
     _, por_metodo, _ = _totales(db, caja.id)
-    esperado = _esperado(caja, por_metodo)
+    esperado = _esperado(caja, por_metodo, _totales_movimientos(db, caja.id))
     contado = redondear(datos.monto_contado)
     diferencia = (contado - esperado).quantize(CENTAVO)
     observaciones = (datos.observaciones or "").strip()
@@ -110,6 +142,36 @@ def cerrar_caja(datos: schemas.CajaCerrar, db: Session = Depends(get_db), user: 
     caja.monto_esperado = esperado
     caja.diferencia = diferencia
     caja.observaciones = observaciones or None
+    db.commit()
+    db.refresh(caja)
+    return serializar_caja(db, caja)
+
+
+@router.post("/movimientos")
+def registrar_movimiento(
+    datos: schemas.CajaMovimientoCrear, db: Session = Depends(get_db), user: models.Usuario = _cajero,
+):
+    """Ingreso, egreso o retiro sobre la caja abierta del usuario. Inmutable: no hay PUT ni DELETE."""
+    # FOR UPDATE: serializa con otros movimientos y con el cierre, y espera a los cobros en curso.
+    caja = db.query(models.Caja).filter(
+        models.Caja.usuario_id == user.id, models.Caja.estado == "abierta",
+    ).with_for_update().first()
+    if not caja:
+        raise HTTPException(status_code=409, detail="Abre la caja antes de registrar un movimiento")
+    monto = redondear(datos.monto)
+    if datos.tipo in ("egreso", "retiro"):
+        _, por_metodo, _ = _totales(db, caja.id)
+        disponible = _esperado(caja, por_metodo, _totales_movimientos(db, caja.id))
+        if monto > disponible:
+            # El disponible es el efectivo esperado: al cajero no se le muestra la cifra (cierre a ciegas).
+            cifra = f" (S/ {disponible})" if user.rol.nombre == "admin" else ""
+            raise HTTPException(
+                status_code=409,
+                detail=f"El {datos.tipo} supera el efectivo disponible en caja{cifra}",
+            )
+    db.add(models.CajaMovimiento(
+        caja_id=caja.id, tipo=datos.tipo, monto=monto, motivo=datos.motivo, usuario_id=user.id,
+    ))
     db.commit()
     db.refresh(caja)
     return serializar_caja(db, caja)

@@ -176,6 +176,23 @@ CREATE TABLE IF NOT EXISTS orbezo.caja (
 CREATE UNIQUE INDEX IF NOT EXISTS uq_caja_abierta_por_usuario
     ON orbezo.caja (usuario_id) WHERE estado = 'abierta';
 
+-- Movimientos de efectivo del turno (ingresos, egresos y retiros). Inmutables por API.
+CREATE TABLE IF NOT EXISTS orbezo.caja_movimiento (
+    id         SERIAL PRIMARY KEY,
+    caja_id    INTEGER NOT NULL,
+    tipo       VARCHAR(10) NOT NULL,
+    monto      NUMERIC(10,2) NOT NULL,
+    motivo     TEXT NOT NULL,
+    usuario_id INTEGER NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_caja_mov_caja FOREIGN KEY (caja_id) REFERENCES orbezo.caja(id),
+    CONSTRAINT fk_caja_mov_usuario FOREIGN KEY (usuario_id) REFERENCES orbezo.usuario(id),
+    CONSTRAINT ck_caja_mov_tipo CHECK (tipo IN ('ingreso','egreso','retiro')),
+    CONSTRAINT ck_caja_mov_monto CHECK (monto > 0),
+    CONSTRAINT ck_caja_mov_motivo CHECK (char_length(btrim(motivo)) BETWEEN 3 AND 200)
+);
+CREATE INDEX IF NOT EXISTS idx_caja_mov_caja ON orbezo.caja_movimiento (caja_id);
+
 -- Comprobantes
 CREATE TABLE IF NOT EXISTS orbezo.comprobante (
     id                SERIAL PRIMARY KEY,

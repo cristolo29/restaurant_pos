@@ -1,6 +1,6 @@
 from decimal import Decimal
-from pydantic import BaseModel, Field, field_validator, model_validator
-from typing import Optional, List, Literal
+from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
+from typing import Annotated, Optional, List, Literal
 
 
 # --- Categorias ---
@@ -240,3 +240,9 @@ class CajaAbrir(BaseModel):
 class CajaCerrar(BaseModel):
     monto_contado: Decimal = Field(ge=0, le=Decimal("9999999.99"), max_digits=10, decimal_places=2)
     observaciones: Optional[str] = Field(default=None, max_length=500)
+
+
+class CajaMovimientoCrear(BaseModel):
+    tipo: Literal["ingreso", "egreso", "retiro"]
+    monto: Decimal = Field(gt=0, le=Decimal("9999999.99"), max_digits=10, decimal_places=2)
+    motivo: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=200)]

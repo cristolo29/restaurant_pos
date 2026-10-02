@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, Boolean, DateTime, ForeignKey, text, Numeric, func,
-    UniqueConstraint, CheckConstraint, Index,
+    UniqueConstraint, CheckConstraint, Index, Text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
@@ -169,6 +169,30 @@ class Caja(Base):
     observaciones  = Column(String(500))
     cerrada_por    = Column(Integer, ForeignKey("orbezo.usuario.id", name="fk_caja_cerrada_por"))
 
+    usuario = relationship("Usuario", foreign_keys=[usuario_id])
+    movimientos = relationship("CajaMovimiento", back_populates="caja", order_by="CajaMovimiento.id")
+
+
+class CajaMovimiento(Base):
+    """Ingreso, egreso o retiro de efectivo del turno. Inmutable: la API no ofrece UPDATE ni DELETE."""
+    __tablename__ = "caja_movimiento"
+    __table_args__ = (
+        CheckConstraint("tipo IN ('ingreso','egreso','retiro')", name="ck_caja_mov_tipo"),
+        CheckConstraint("monto > 0", name="ck_caja_mov_monto"),
+        CheckConstraint("char_length(btrim(motivo)) BETWEEN 3 AND 200", name="ck_caja_mov_motivo"),
+        Index("idx_caja_mov_caja", "caja_id"),
+        {"schema": "orbezo"},
+    )
+
+    id         = Column(Integer, primary_key=True, index=True)
+    caja_id    = Column(Integer, ForeignKey("orbezo.caja.id", name="fk_caja_mov_caja"), nullable=False)
+    tipo       = Column(String(10), nullable=False)
+    monto      = Column(Numeric(10, 2), nullable=False)
+    motivo     = Column(Text, nullable=False)
+    usuario_id = Column(Integer, ForeignKey("orbezo.usuario.id", name="fk_caja_mov_usuario"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    caja    = relationship("Caja", back_populates="movimientos")
     usuario = relationship("Usuario", foreign_keys=[usuario_id])
 
 
