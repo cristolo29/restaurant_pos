@@ -40,6 +40,12 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL:-}
+        VITE_EMISOR_NOMBRE: ${VITE_EMISOR_NOMBRE:-}
+        VITE_EMISOR_RUC: ${VITE_EMISOR_RUC:-}
+        VITE_EMISOR_DIRECCION: ${VITE_EMISOR_DIRECCION:-}
+        VITE_EMISOR_TELEFONO: ${VITE_EMISOR_TELEFONO:-}
+        VITE_EMISOR_LOGO: ${VITE_EMISOR_LOGO:-}
+        VITE_COMPROBANTE_LEYENDA: ${VITE_COMPROBANTE_LEYENDA:-}
     restart: unless-stopped
     ports:
       - "80:80"

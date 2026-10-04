@@ -78,6 +78,23 @@ psql -v ON_ERROR_STOP=1 -h HOST -U USER -d BD -f scripts/migrations/004_caja_mov
 - **Autorización de una diferencia grande:** con más de un administrador activo, el PIN debe ser de **otro** administrador distinto de quien cierra; con un solo administrador se acepta su propio PIN y las observaciones deben tener al menos 10 caracteres. Tras 5 PIN erróneos seguidos el usuario queda bloqueado 15 minutos (limitador en memoria, válido para una sola instancia de la API).
 - Los PIN de autorización nunca se registran ni se devuelven.
 
+## Datos del emisor en el comprobante impreso (opcional)
+
+El comprobante (A4 y ticket de 80 mm) imprime el encabezado del emisor desde variables de entorno **de build** del frontend. No hay RUC, dirección ni teléfono por defecto: solo se imprime lo que definas.
+
+| Variable | Qué imprime |
+|---|---|
+| `VITE_EMISOR_NOMBRE` | Nombre comercial (por defecto «Orbezo Resto Bar») |
+| `VITE_EMISOR_RUC` | Línea «RUC: ...» (si no la defines, no se muestra) |
+| `VITE_EMISOR_DIRECCION` | Dirección del local |
+| `VITE_EMISOR_TELEFONO` | Teléfono |
+| `VITE_EMISOR_LOGO` | Ruta o URL de un logo (p. ej. `/logo.png` con el archivo en `frontend_react/public/`) |
+| `VITE_COMPROBANTE_LEYENDA` | Línea discreta al pie (p. ej. «Documento interno»); vacía por defecto |
+
+Se definen en el `.env` de la raíz (docker compose las pasa como `build args`) o en `frontend_react/.env.local` (desarrollo; ver `frontend_react/.env.example`). Como son de build, **hay que reconstruir el frontend** (`docker compose up --build frontend`) para que cambien. El sistema **no envía a SUNAT**, por eso el documento no dice «electrónico», ni lleva QR, hash ni «autorizado mediante resolución».
+
+El nombre de archivo que propone «Guardar como PDF» es «Boleta B001-000001» / «Factura F001-000001». El diálogo de impresión del navegador ofrece el formato A4 o Ticket 80 mm (se elige en la pantalla antes de imprimir; para el ticket, en el diálogo elige tu impresora térmica y márgenes «Ninguno»).
+
 ## Prueba manual después del despliegue
 
 1. Entrar con tu PIN de siempre (admin) y con uno de mozo.
@@ -86,7 +103,7 @@ psql -v ON_ERROR_STOP=1 -h HOST -U USER -d BD -f scripts/migrations/004_caja_mov
 4. Como mozo: no puede anular un pedido ajeno ni uno con ítems en cocina (botón deshabilitado y 403 del servidor).
 5. Cajero: sin caja abierta, Cobro muestra el aviso y no deja cobrar; en `/caja` abrir con un fondo, cobrar una mesa y ver el resumen; cerrar caja con el efectivo contado (con diferencia pide observaciones) e imprimir el arqueo. Admin ve el historial de cajas.
 6. Caja (cajero): registrar un ingreso, un egreso y un retiro (el retiro/ingreso imprime su comprobante interno); el resumen no muestra el efectivo esperado; cerrar contando por denominaciones y ver en el arqueo el esperado y «Faltan/Sobran S/ X.XX». Con una diferencia mayor a la tolerancia, el cierre pide el PIN de un administrador. Admin: ve el esperado de las cajas abiertas.
-7. Admin → Comprobantes: abrir el detalle de uno y probar Imprimir (Cmd+P).
+7. Admin → Comprobantes: abrir el detalle de uno y probar Imprimir en A4 y en Ticket 80 mm (vista previa de impresión).
 
 ## Si algo sale mal
 
