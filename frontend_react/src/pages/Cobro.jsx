@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   ArrowLeft, Banknote, CreditCard, Smartphone, QrCode, Receipt, FileText,
-  StickyNote, Printer, CheckCircle2, AlertCircle, Store, Vault,
+  StickyNote, CheckCircle2, AlertCircle, Store, Vault,
 } from 'lucide-react'
 import { cobrarPedido } from '../api/pedidos'
 import useCaja from '../store/useCaja'
@@ -200,20 +200,19 @@ export default function Cobro() {
             <Button variant="primary" size="lg" block onClick={() => navigate('/mesas')}>
               Volver a mesas
             </Button>
-            <Button variant="secondary" size="lg" block icon={Printer} onClick={() => window.print()}>
-              Imprimir comprobante
-            </Button>
           </div>
-        </div>
 
-        {/* Ticket oculto en pantalla, visible solo al imprimir */}
-        <TicketBoleta
-          comprobante={comprobante}
-          mesa={mesa}
-          metodo={metodo}
-          vuelto={vuelto}
-          montoPagado={montoPagado}
-        />
+          {/* Formato (A4 / Ticket 80 mm) e Imprimir; la copia de impresión vive fuera de la app */}
+          <Card className="p-4 mt-4">
+            <TicketBoleta
+              comprobante={comprobante}
+              mesa={mesa}
+              metodo={metodo}
+              vuelto={vuelto}
+              montoPagado={montoPagado}
+            />
+          </Card>
+        </div>
         {modal && <ModalConfirm {...modal} onCancel={() => setModal(null)} />}
       </main>
     )
