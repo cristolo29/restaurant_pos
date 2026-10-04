@@ -233,6 +233,8 @@ class Comprobante(Base):
     created_at          = Column(DateTime(timezone=True), server_default=func.now())
 
     items = relationship("ComprobanteItem", back_populates="comprobante")
+    pedido = relationship("Pedido")
+    usuario = relationship("Usuario")
 
     @property
     def numero(self):

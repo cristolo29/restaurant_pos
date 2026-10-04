@@ -161,3 +161,19 @@ def test_listar_comprobantes_incluye_descuento_e_items(client, auth_admin, db, m
 
     r = client.get(f"/api/comprobantes/{comp.id}", headers=auth_admin)
     assert r.json()["descuento"] == pytest.approx(5.0)
+
+
+def test_comprobante_trae_mesa_y_quien_cobro(client, auth_cajero, auth_mozo, auth_admin, mesa, usuario_mozo, usuario_cajero, producto, serie_boleta):
+    """El documento impreso muestra la mesa y quién atendió/cobró (cajero), sin consultas extra en el cliente."""
+    pedido = _crear_pedido_cerrado(client, auth_mozo, auth_cajero, mesa, usuario_mozo, producto)
+    r = client.post("/api/comprobantes", json={
+        "pedido_id": pedido["id"], "tipo": "boleta", "metodo_pago": "efectivo", "monto_pagado": 60.0, "vuelto": 4.0,
+    }, headers=auth_cajero)
+    assert r.status_code == 200, r.text
+    assert r.json()["mesa"] == mesa.numero
+    assert r.json()["atendido_por"] == usuario_cajero.nombre
+
+    cid = r.json()["id"]
+    assert client.get(f"/api/comprobantes/{cid}", headers=auth_cajero).json()["atendido_por"] == usuario_cajero.nombre
+    lista = client.get("/api/comprobantes", headers=auth_admin).json()
+    assert lista[0]["mesa"] == mesa.numero and lista[0]["atendido_por"] == usuario_cajero.nombre

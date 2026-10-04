@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app import models, schemas, cobro
 from app.security import require_roles
@@ -28,6 +28,8 @@ def _serializar(comp: models.Comprobante) -> dict:
         "descuento":         float(comp.descuento or 0),
         "total":             float(comp.total),
         "estado_sunat":      comp.estado_sunat,
+        "mesa":              comp.pedido.mesa.numero if comp.pedido and comp.pedido.mesa else None,
+        "atendido_por":      comp.usuario.nombre if comp.usuario else None,  # quien cobró (cajero)
         "created_at":        comp.created_at.strftime("%d/%m/%Y %H:%M") if comp.created_at else None,
         "items": [
             {
@@ -47,6 +49,8 @@ def listar_comprobantes(db: Session = Depends(get_db), _=_admin):
     """Lista todos los comprobantes ordenados por más reciente. Solo admin."""
     comprobantes = (
         db.query(models.Comprobante)
+        .options(joinedload(models.Comprobante.items), joinedload(models.Comprobante.usuario),
+                 joinedload(models.Comprobante.pedido).joinedload(models.Pedido.mesa))
         .order_by(models.Comprobante.id.desc())
         .all()
     )

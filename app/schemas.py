@@ -203,6 +203,8 @@ class ComprobanteResponse(BaseModel):
     descuento:         float = 0
     total:             float
     estado_sunat:      str
+    mesa:              Optional[str] = None
+    atendido_por:      Optional[str] = None
     created_at:        Optional[str] = None
     items:             List[ComprobanteItemResponse] = []
 
