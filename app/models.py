@@ -232,7 +232,7 @@ class Comprobante(Base):
     estado_sunat        = Column(String(20), default="pendiente")
     created_at          = Column(DateTime(timezone=True), server_default=func.now())
 
-    items = relationship("ComprobanteItem", back_populates="comprobante")
+    items = relationship("ComprobanteItem", back_populates="comprobante", order_by="ComprobanteItem.id")
     pedido = relationship("Pedido")
     usuario = relationship("Usuario")
 
