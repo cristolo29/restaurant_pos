@@ -20,3 +20,8 @@ frontend_react/dist/
 
 # Superpowers (scratch de ejecución de planes)
 .superpowers/
+
+# Claude Code
+.claude/worktrees/
+.claude/settings.local.json
+graphify-out/
