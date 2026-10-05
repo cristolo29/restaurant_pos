@@ -1,26 +1,35 @@
 import { useEffect, useRef } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { LogOut, UtensilsCrossed, Wifi, WifiOff } from 'lucide-react'
 import useAuth from '../store/useAuth'
 import useMesas from '../store/useMesas'
 import useConexion from '../store/useConexion'
-import { destinosParaRol, mostrarBarra } from '../config/navegacion'
+import { destinosParaRol, mostrarBarra, etiquetaRol } from '../config/navegacion'
 import { mesasPorCobrar, totalPlatosListos } from '../utils/mesasDerivadas'
+import { Toaster, cn } from './ui'
 
 function Badge({ n }) {
   if (!n || n <= 0) return null
   return (
-    <span className="absolute top-1 right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-[#ef4444] text-white text-[11px] font-bold leading-[18px] text-center">
+    <span
+      aria-label={`${n} pendiente${n > 1 ? 's' : ''}`}
+      className="num absolute top-1.5 right-3 md:right-4 min-w-5 h-5 px-1 rounded-full bg-danger text-white text-xs font-bold leading-5 text-center"
+    >
       {n}
     </span>
   )
 }
 
-function PuntoConexion({ enLinea }) {
+function Conexion({ enLinea, compacto = false }) {
+  const Icono = enLinea ? Wifi : WifiOff
   return (
     <span
-      title={enLinea ? 'En línea' : 'Sin conexión'}
-      className={`inline-block w-2.5 h-2.5 rounded-full ${enLinea ? 'bg-[#22c55e]' : 'bg-[#ef4444]'}`}
-    />
+      className={cn('inline-flex items-center gap-1.5 text-xs font-medium', enLinea ? 'text-success' : 'text-danger')}
+      role="status"
+    >
+      <Icono className="size-4" aria-hidden="true" />
+      <span className={compacto ? 'sr-only' : undefined}>{enLinea ? 'En línea' : 'Sin conexión'}</span>
+    </span>
   )
 }
 
@@ -75,8 +84,9 @@ export default function AppShell() {
   }
 
   const banner = !enLinea && (
-    <div className="bg-[#ef4444] text-white text-sm font-medium text-center py-1.5 px-3">
-      Sin conexión — los cambios pueden no guardarse
+    <div role="alert" className="flex items-center justify-center gap-2 bg-danger text-white text-sm font-medium py-2 px-3">
+      <WifiOff className="size-4 shrink-0" aria-hidden="true" />
+      Sin conexión: los cambios pueden no guardarse
     </div>
   )
 
@@ -85,77 +95,102 @@ export default function AppShell() {
       <>
         {banner}
         <Outlet />
+        <Toaster />
       </>
     )
   }
 
   const claseLateral = ({ isActive }) =>
-    `relative flex flex-col items-center justify-center gap-0.5 w-full min-h-[56px] py-2 text-[11px] leading-tight text-center transition-colors ${
-      isActive ? 'text-[#f59e0b] bg-[#27272a]' : 'text-[#71717a] hover:text-white'
-    }`
+    cn(
+      'relative flex flex-col items-center justify-center gap-1 w-full min-h-[68px] py-2 text-[0.8125rem] font-medium leading-tight text-center transition-colors border-l-[3px]',
+      isActive
+        ? 'text-accent bg-surface border-accent'
+        : 'text-muted border-transparent hover:text-ink hover:bg-surface/60',
+    )
 
   const claseInferior = ({ isActive }) =>
-    `relative flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[44px] text-[11px] leading-tight text-center transition-colors ${
-      isActive ? 'text-[#f59e0b]' : 'text-[#71717a]'
-    }`
+    cn(
+      'relative flex-1 flex flex-col items-center justify-center gap-0.5 min-h-14 text-xs font-medium leading-tight text-center transition-colors border-t-[3px]',
+      isActive ? 'text-accent border-accent' : 'text-muted border-transparent',
+    )
 
   return (
     <>
-      <div className="md:pl-20">{banner}</div>
+      <a
+        href="#contenido"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[70] focus:bg-accent focus:text-on-accent focus:px-4 focus:py-2 focus:rounded-control"
+      >
+        Saltar al contenido
+      </a>
+      <div className="md:pl-24">{banner}</div>
 
       {/* Barra lateral (≥ md) */}
-      <nav className="hidden md:flex fixed inset-y-0 left-0 w-20 z-40 flex-col bg-[#18181b] border-r border-[#3f3f46]">
+      <nav aria-label="Principal" className="hidden md:flex fixed inset-y-0 left-0 w-24 z-40 flex-col bg-sunken border-r border-line">
+        <div className="grid place-items-center h-16 border-b border-line text-accent">
+          <UtensilsCrossed className="size-7" aria-hidden="true" />
+          <span className="sr-only">Orbezo POS</span>
+        </div>
         <div className="flex-1 overflow-y-auto pt-2">
           {destinos.map(d => (
             <NavLink key={d.id} to={d.path} className={claseLateral}>
-              <span className="text-xl">{d.icono}</span>
+              <d.icono className="size-6" aria-hidden="true" />
               <span>{d.label}</span>
               <Badge n={badges[d.id]} />
             </NavLink>
           ))}
         </div>
-        <div className="flex flex-col items-center gap-2 py-3 border-t border-[#3f3f46]">
-          <div className="relative w-9 h-9 rounded-full bg-[#27272a] border border-[#3f3f46] flex items-center justify-center text-xs font-bold text-[#f59e0b]">
+        <div className="flex flex-col items-center gap-1.5 px-1 py-3 border-t border-line">
+          <div
+            aria-hidden="true"
+            className="grid place-items-center size-10 rounded-full bg-surface border border-line text-sm font-bold text-accent"
+          >
             {iniciales}
           </div>
-          <PuntoConexion enLinea={enLinea} />
+          <p className="text-xs text-soft font-medium truncate max-w-full px-1">{usuario?.nombre}</p>
+          <p className="text-xs text-faint -mt-1">{etiquetaRol(rol)}</p>
+          <Conexion enLinea={enLinea} />
           <button
             onClick={salir}
-            className="min-h-[44px] w-full text-xs text-[#71717a] hover:text-white transition-colors"
+            className="mt-1 flex items-center justify-center gap-1.5 min-h-11 w-full text-sm text-muted hover:text-ink hover:bg-surface rounded-control transition-colors"
           >
+            <LogOut className="size-4" aria-hidden="true" />
             Salir
           </button>
         </div>
       </nav>
 
       {/* Franja superior (< md), no sticky */}
-      <div className="md:hidden h-10 flex items-center justify-between px-4 bg-[#18181b] border-b border-[#3f3f46]">
-        <span className="flex items-center gap-2 text-sm text-white truncate">
-          <PuntoConexion enLinea={enLinea} />
-          <span className="truncate">{usuario?.nombre}</span>
+      <div className="md:hidden min-h-11 flex items-center justify-between px-4 bg-sunken border-b border-line">
+        <span className="flex items-center gap-2 text-sm text-ink min-w-0">
+          <Conexion enLinea={enLinea} compacto />
+          <span className="truncate font-medium">{usuario?.nombre}</span>
+          <span className="text-faint text-xs shrink-0">· {etiquetaRol(rol)}</span>
         </span>
         <button
           onClick={salir}
-          className="min-h-[44px] px-2 text-xs text-[#71717a] hover:text-white transition-colors"
+          aria-label="Cerrar sesión"
+          className="inline-flex items-center gap-1.5 min-h-11 px-2 text-sm text-muted hover:text-ink transition-colors"
         >
+          <LogOut className="size-4" aria-hidden="true" />
           Salir
         </button>
       </div>
 
-      <div className="pb-16 md:pb-0 md:pl-20">
+      <div id="contenido" className="pb-16 md:pb-0 md:pl-24">
         <Outlet />
       </div>
 
       {/* Barra inferior (< md) */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 h-16 z-40 flex bg-[#18181b] border-t border-[#3f3f46]">
+      <nav aria-label="Principal" className="md:hidden fixed bottom-0 inset-x-0 h-16 z-40 flex bg-sunken border-t border-line">
         {destinos.map(d => (
-          <NavLink key={d.id} to={d.path} className={claseInferior}>
-            <span className="text-xl">{d.icono}</span>
-            <span>{d.label}</span>
+          <NavLink key={d.id} to={d.path} className={claseInferior} aria-label={d.label}>
+            <d.icono className="size-6" aria-hidden="true" />
+            <span aria-hidden="true">{d.corto ?? d.label}</span>
             <Badge n={badges[d.id]} />
           </NavLink>
         ))}
       </nav>
+      <Toaster />
     </>
   )
 }

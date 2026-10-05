@@ -1,16 +1,57 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import {
+  ArrowLeft, Banknote, CreditCard, Smartphone, QrCode, Receipt, FileText,
+  StickyNote, Printer, CheckCircle2, AlertCircle, Store,
+} from 'lucide-react'
 import { cerrarPedido } from '../api/pedidos'
 import { emitirComprobante } from '../api/comprobantes'
 import TicketBoleta from '../components/TicketBoleta'
 import ModalConfirm from '../components/ModalConfirm'
+import { Button, Card, PageHeader, EmptyState, cn } from '../components/ui'
 
 const METODOS = [
-  { id: 'efectivo', label: 'Efectivo', icon: '💵' },
-  { id: 'tarjeta',  label: 'Tarjeta',  icon: '💳' },
-  { id: 'yape',     label: 'Yape',     icon: '📱' },
-  { id: 'plin',     label: 'Plin',     icon: '📲' },
+  { id: 'efectivo', label: 'Efectivo', icon: Banknote },
+  { id: 'tarjeta',  label: 'Tarjeta',  icon: CreditCard },
+  { id: 'yape',     label: 'Yape',     icon: Smartphone },
+  { id: 'plin',     label: 'Plin',     icon: QrCode },
 ]
+
+const TIPOS = [
+  { id: 'boleta',  label: 'Boleta',  icon: Receipt },
+  { id: 'factura', label: 'Factura', icon: FileText },
+]
+
+const INPUT = 'w-full min-h-12 bg-sunken border border-line-strong rounded-control px-4 text-ink text-base placeholder:text-faint focus:outline-none focus:border-accent aria-[invalid=true]:border-danger transition-colors'
+
+function Opcion({ activa, icon, children, ...props }) {
+  const Icon = icon
+  return (
+    <button
+      type="button"
+      aria-pressed={activa}
+      className={cn(
+        'min-h-16 rounded-control border-2 text-base font-semibold transition-colors flex flex-col items-center justify-center gap-1 px-2 active:scale-[0.98]',
+        activa
+          ? 'bg-accent/10 border-accent text-accent'
+          : 'bg-raised border-transparent text-soft hover:text-ink',
+      )}
+      {...props}
+    >
+      <Icon className="size-6" aria-hidden="true" />
+      {children}
+    </button>
+  )
+}
+
+function Campo({ id, label, children }) {
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm text-muted mb-1.5">{label}</label>
+      {children}
+    </div>
+  )
+}
 
 export default function Cobro() {
   const { state } = useLocation()
@@ -27,8 +68,21 @@ export default function Cobro() {
   const [procesando, setProcesando] = useState(false)
   const [comprobante, setComprobante] = useState(null)
   const [modal, setModal] = useState(null)
+  const [errorForm, setErrorForm] = useState('')
 
-  if (!pedido) { navigate('/mesas'); return null }
+  if (!pedido) {
+    navigate('/mesas')
+    return (
+      <main className="min-h-screen bg-app">
+        <EmptyState
+          icon={Store}
+          title="No hay un pedido para cobrar"
+          description="Vuelve a mesas y elige la cuenta que quieres cobrar."
+          action={<Button variant="primary" onClick={() => navigate('/mesas')}>Ir a mesas</Button>}
+        />
+      </main>
+    )
+  }
 
   const items = pedido.items?.filter(i => i.estado !== 'cancelado') || []
   const itemsAgrupados = Object.values(
@@ -48,6 +102,7 @@ export default function Cobro() {
   const pagado   = parseFloat(montoPagado) || 0
   const vuelto   = pagado > bruto ? pagado - bruto : 0
 
+  // Lanza el error para que quien llama decida cómo mostrarlo.
   const ejecutarCobro = async () => {
     setProcesando(true)
     try {
@@ -64,26 +119,15 @@ export default function Cobro() {
       })
       setComprobante(comp)
     } catch (e) {
-      setModal({
-        titulo: 'Error al procesar cobro',
-        mensaje: e.response?.data?.detail || 'Ocurrió un error inesperado.',
-        labelConfirm: 'Entendido',
-        colorConfirm: 'danger',
-        onConfirm: () => {},
-      })
       setProcesando(false)
+      throw e
     }
   }
 
   const cobrar = async () => {
+    setErrorForm('')
     if (tipoComp === 'factura' && !ruc.trim()) {
-      setModal({
-        titulo: 'RUC requerido',
-        mensaje: 'La factura requiere el RUC del cliente.',
-        labelConfirm: 'Entendido',
-        colorConfirm: 'warning',
-        onConfirm: () => {},
-      })
+      setErrorForm('La factura requiere el RUC del cliente.')
       return
     }
     // Confirmación para métodos digitales (no hay monto ingresado manualmente)
@@ -98,52 +142,53 @@ export default function Cobro() {
       })
       return
     }
-    await ejecutarCobro()
+    try {
+      await ejecutarCobro()
+    } catch (e) {
+      setErrorForm(e.response?.data?.detail || 'Ocurrió un error inesperado al procesar el cobro.')
+    }
   }
 
   // Pantalla de éxito
   if (comprobante) {
     return (
-      <div className="min-h-screen bg-[#18181b] text-white flex items-center justify-center px-4">
-        <div className="w-full max-w-sm text-center">
-          <div className="w-20 h-20 rounded-full bg-[#22c55e]/15 border border-[#22c55e]/30 flex items-center justify-center text-4xl mx-auto mb-6">
-            ✓
+      <main className="min-h-screen bg-app text-ink flex items-center justify-center px-4 py-8">
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-6">
+            <div className="size-20 rounded-full bg-success/15 border border-success/30 text-success grid place-items-center mx-auto mb-5">
+              <CheckCircle2 className="size-10" aria-hidden="true" />
+            </div>
+            <h1 className="text-2xl font-bold text-ink mb-1">Cobro exitoso</h1>
+            <p role="status" className="text-muted">Mesa {mesa?.numero} liberada</p>
           </div>
-          <h2 className="text-2xl font-bold text-white mb-1">¡Cobro exitoso!</h2>
-          <p className="text-[#71717a] text-sm mb-8">Mesa {mesa?.numero} liberada</p>
 
-          <div className="bg-[#27272a] border border-[#3f3f46] rounded-2xl p-6 text-left mb-4">
+          <Card className="p-6 mb-4">
             <div className="flex justify-between items-center mb-4">
-              <span className="text-[#71717a] text-sm">Comprobante</span>
-              <span className="text-[#f59e0b] font-bold">{comprobante.numero}</span>
+              <span className="text-muted">Comprobante</span>
+              <span className="text-accent font-bold num">{comprobante.numero}</span>
             </div>
             <div className="flex justify-between items-center mb-2">
-              <span className="text-[#71717a] text-sm">Subtotal</span>
-              <span className="text-white">S/ {Number(comprobante.subtotal).toFixed(2)}</span>
+              <span className="text-muted">Subtotal</span>
+              <span className="text-ink num">S/ {Number(comprobante.subtotal).toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center mb-2">
-              <span className="text-[#71717a] text-sm">IGV (18%)</span>
-              <span className="text-white">S/ {Number(comprobante.igv).toFixed(2)}</span>
+              <span className="text-muted">IGV (18%)</span>
+              <span className="text-ink num">S/ {Number(comprobante.igv).toFixed(2)}</span>
             </div>
-            <div className="flex justify-between items-center pt-3 border-t border-[#3f3f46]">
-              <span className="text-white font-semibold">Total</span>
-              <span className="text-[#f59e0b] text-xl font-bold">S/ {Number(comprobante.total).toFixed(2)}</span>
+            <div className="flex justify-between items-center pt-3 border-t border-line">
+              <span className="text-ink font-semibold">Total</span>
+              <span className="text-accent text-3xl font-bold num">S/ {Number(comprobante.total).toFixed(2)}</span>
             </div>
+          </Card>
+
+          <div className="flex flex-col gap-3">
+            <Button variant="primary" size="lg" block onClick={() => navigate('/mesas')}>
+              Volver a mesas
+            </Button>
+            <Button variant="secondary" size="lg" block icon={Printer} onClick={() => window.print()}>
+              Imprimir comprobante
+            </Button>
           </div>
-
-          <button
-            onClick={() => window.print()}
-            className="w-full bg-[#27272a] border border-[#3f3f46] text-white py-3 rounded-xl font-semibold hover:border-[#f59e0b]/50 hover:text-[#f59e0b] transition-colors mb-3 flex items-center justify-center gap-2"
-          >
-            🖨️ Imprimir comprobante
-          </button>
-
-          <button
-            onClick={() => navigate('/mesas')}
-            className="w-full bg-[#f59e0b] text-black py-3 rounded-xl font-bold hover:bg-[#d97706] transition-colors"
-          >
-            Volver a mesas
-          </button>
         </div>
 
         {/* Ticket oculto en pantalla, visible solo al imprimir */}
@@ -155,216 +200,231 @@ export default function Cobro() {
           montoPagado={montoPagado}
         />
         {modal && <ModalConfirm {...modal} onCancel={() => setModal(null)} />}
-      </div>
+      </main>
     )
   }
 
+  const efectivoInsuficiente = metodo === 'efectivo' && montoPagado && pagado < bruto
+  const sinItems = items.length === 0
+
   return (
-    <div className="min-h-screen bg-[#18181b] text-white flex flex-col">
-
-      {/* Header */}
-      <header className="bg-[#27272a] px-6 py-4 flex justify-between items-center border-b border-[#3f3f46]">
-        <div className="flex items-center gap-3">
-          <button
+    <div className="min-h-screen bg-app text-ink flex flex-col">
+      <main className="flex-1 p-4 sm:p-6 max-w-5xl mx-auto w-full">
+        <div className="mb-3">
+          <Button
+            variant="ghost"
+            icon={ArrowLeft}
             onClick={() => navigate('/comanda', { state: { pedido, mesa } })}
-            className="text-[#71717a] hover:text-white transition-colors p-1 rounded-lg hover:bg-[#3f3f46]"
           >
-            ← Comanda
-          </button>
-          <div className="w-px h-5 bg-[#3f3f46]" />
-          <span className="text-white font-bold">Cobro · Mesa {mesa?.numero}</span>
+            Volver a la comanda
+          </Button>
         </div>
-      </header>
+        <PageHeader title={`Cobro · Mesa ${mesa?.numero ?? ''}`} subtitle="Revisa la cuenta y elige cómo paga el cliente" />
 
-      <div className="flex-1 overflow-y-auto p-6 max-w-2xl mx-auto w-full flex flex-col gap-6">
-
-        {/* Resumen del pedido */}
-        <div className="bg-[#27272a] border border-[#3f3f46] rounded-2xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#3f3f46]">
-            <p className="text-white font-semibold">Resumen del pedido</p>
-          </div>
-          <div className="divide-y divide-[#3f3f46]">
-            {itemsAgrupados.map(item => (
-              <div key={item.producto_id} className="px-5 py-3 flex justify-between items-center">
-                <div>
-                  <p className="text-white text-sm">{item.nombre}</p>
-                  {item.nota && <p className="text-[#71717a] text-xs">📝 {item.nota}</p>}
-                </div>
-                <div className="text-right">
-                  <p className="text-[#71717a] text-xs">{item.cantidad}x</p>
-                  <p className="text-white text-sm font-medium">S/ {Number(item.subtotal).toFixed(2)}</p>
-                </div>
+        <div className="grid gap-4 lg:grid-cols-2 items-start">
+          {/* Resumen del pedido */}
+          <Card className="overflow-hidden">
+            <h2 className="px-5 py-4 border-b border-line text-ink font-semibold">Resumen del pedido</h2>
+            {sinItems ? (
+              <EmptyState icon={Receipt} title="Este pedido no tiene ítems para cobrar" className="py-10" />
+            ) : (
+              <ul className="divide-y divide-line">
+                {itemsAgrupados.map(item => (
+                  <li key={item.producto_id} className="px-5 py-3 flex justify-between items-center gap-3">
+                    <div className="min-w-0">
+                      <p className="text-ink">{item.nombre}</p>
+                      {item.nota && (
+                        <p className="text-muted text-caption flex items-center gap-1">
+                          <StickyNote className="size-3.5 shrink-0" aria-hidden="true" /> {item.nota}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-muted text-caption num">{item.cantidad}x</p>
+                      <p className="text-ink font-medium num">S/ {Number(item.subtotal).toFixed(2)}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="px-5 py-4 border-t border-line space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-muted">Subtotal (sin IGV)</span>
+                <span className="text-ink num">S/ {subtotal.toFixed(2)}</span>
               </div>
-            ))}
-          </div>
-          <div className="px-5 py-4 border-t border-[#3f3f46] space-y-1.5">
-            <div className="flex justify-between text-sm">
-              <span className="text-[#71717a]">Subtotal (sin IGV)</span>
-              <span className="text-white">S/ {subtotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-[#71717a]">IGV (18%)</span>
-              <span className="text-white">S/ {igv.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-base font-bold pt-1 border-t border-[#3f3f46] mt-2">
-              <span className="text-white">Total</span>
-              <span className="text-[#f59e0b] text-xl">S/ {bruto.toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Método de pago */}
-        <div className="bg-[#27272a] border border-[#3f3f46] rounded-2xl p-5">
-          <p className="text-white font-semibold mb-4">Método de pago</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {METODOS.map(m => (
-              <button
-                key={m.id}
-                onClick={() => setMetodo(m.id)}
-                className={`py-3 rounded-xl border text-sm font-medium transition-all flex flex-col items-center gap-1
-                  ${metodo === m.id
-                    ? 'bg-[#f59e0b]/10 border-[#f59e0b]/60 text-[#f59e0b]'
-                    : 'bg-[#3f3f46] border-transparent text-[#a1a1aa] hover:text-white'
-                  }`}
-              >
-                <span className="text-xl">{m.icon}</span>
-                {m.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Vuelto — solo efectivo */}
-        {metodo === 'efectivo' && (
-          <div className="bg-[#27272a] border border-[#3f3f46] rounded-2xl p-5">
-            <p className="text-white font-semibold mb-4">Efectivo recibido</p>
-
-            {/* Billetes rápidos */}
-            <div className="flex gap-2 mb-3 flex-wrap">
-              {[10, 20, 50, 100, 200].map(b => (
-                <button
-                  key={b}
-                  onClick={() => setMontoPagado(String(b))}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all
-                    ${montoPagado === String(b)
-                      ? 'bg-[#f59e0b]/10 border-[#f59e0b]/60 text-[#f59e0b]'
-                      : 'bg-[#3f3f46] border-transparent text-[#a1a1aa] hover:text-white'
-                    }`}
-                >
-                  S/ {b}
-                </button>
-              ))}
-            </div>
-
-            <input
-              type="number"
-              value={montoPagado}
-              onChange={e => setMontoPagado(e.target.value)}
-              placeholder={`Mínimo S/ ${bruto.toFixed(2)}`}
-              min={bruto}
-              className="w-full bg-[#3f3f46] border border-[#52525b] rounded-xl px-4 py-2.5 text-white text-sm placeholder-[#71717a] focus:outline-none focus:border-[#f59e0b] transition-colors"
-            />
-
-            {pagado > 0 && pagado < bruto && (
-              <div className="mt-2 bg-red-900/20 border border-red-500/30 rounded-xl px-4 py-2.5 flex justify-between items-center">
-                <span className="text-red-400 text-sm">Faltan</span>
-                <span className="text-red-400 text-lg font-bold">S/ {(bruto - pagado).toFixed(2)}</span>
+              <div className="flex justify-between">
+                <span className="text-muted">IGV (18%)</span>
+                <span className="text-ink num">S/ {igv.toFixed(2)}</span>
               </div>
+              <div className="flex justify-between items-baseline pt-3 mt-2 border-t border-line">
+                <span className="text-ink font-semibold text-lg">Total</span>
+                <span className="text-accent text-3xl font-bold num">S/ {bruto.toFixed(2)}</span>
+              </div>
+            </div>
+          </Card>
+
+          <div className="flex flex-col gap-4">
+            {/* Método de pago */}
+            <Card className="p-5">
+              <h2 id="metodo-titulo" className="text-ink font-semibold mb-4">Método de pago</h2>
+              <div role="group" aria-labelledby="metodo-titulo" className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+                {METODOS.map(m => (
+                  <Opcion key={m.id} icon={m.icon} activa={metodo === m.id} onClick={() => setMetodo(m.id)}>
+                    {m.label}
+                  </Opcion>
+                ))}
+              </div>
+            </Card>
+
+            {/* Efectivo recibido */}
+            {metodo === 'efectivo' && (
+              <Card className="p-5">
+                <h2 className="text-ink font-semibold mb-4">Efectivo recibido</h2>
+
+                <div className="flex gap-2 mb-4 flex-wrap">
+                  {[10, 20, 50, 100, 200].map(b => (
+                    <button
+                      key={b}
+                      type="button"
+                      aria-pressed={montoPagado === String(b)}
+                      onClick={() => setMontoPagado(String(b))}
+                      className={cn(
+                        'min-h-12 min-w-20 px-4 rounded-control border-2 font-semibold num transition-colors active:scale-[0.98]',
+                        montoPagado === String(b)
+                          ? 'bg-accent/10 border-accent text-accent'
+                          : 'bg-raised border-transparent text-soft hover:text-ink',
+                      )}
+                    >
+                      S/ {b}
+                    </button>
+                  ))}
+                </div>
+
+                <Campo id="monto-pagado" label="Monto recibido">
+                  <input
+                    id="monto-pagado"
+                    type="number"
+                    inputMode="decimal"
+                    value={montoPagado}
+                    onChange={e => setMontoPagado(e.target.value)}
+                    placeholder={`Mínimo S/ ${bruto.toFixed(2)}`}
+                    min={bruto}
+                    aria-invalid={pagado > 0 && pagado < bruto}
+                    className={cn(INPUT, 'num')}
+                  />
+                </Campo>
+
+                {pagado > 0 && pagado < bruto && (
+                  <div role="alert" className="mt-3 bg-danger/10 border border-danger/30 rounded-control px-4 py-3 flex justify-between items-center">
+                    <span className="text-danger font-semibold flex items-center gap-2">
+                      <AlertCircle className="size-5" aria-hidden="true" /> Faltan
+                    </span>
+                    <span className="text-danger text-2xl font-bold num">S/ {(bruto - pagado).toFixed(2)}</span>
+                  </div>
+                )}
+
+                {vuelto > 0 && (
+                  <div role="status" className="mt-3 bg-success/10 border border-success/30 rounded-control px-4 py-3 flex justify-between items-center">
+                    <span className="text-success font-semibold">Vuelto</span>
+                    <span className="text-success text-3xl font-bold num">S/ {vuelto.toFixed(2)}</span>
+                  </div>
+                )}
+              </Card>
             )}
 
-            {vuelto > 0 && (
-              <div className="mt-3 bg-[#22c55e]/10 border border-[#22c55e]/30 rounded-xl px-4 py-3 flex justify-between items-center">
-                <span className="text-[#22c55e] font-semibold">Vuelto</span>
-                <span className="text-[#22c55e] text-2xl font-bold">S/ {vuelto.toFixed(2)}</span>
+            {/* Tipo de comprobante */}
+            <Card className="p-5">
+              <h2 id="tipo-titulo" className="text-ink font-semibold mb-4">Tipo de comprobante</h2>
+              <div role="group" aria-labelledby="tipo-titulo" className="grid grid-cols-2 gap-3">
+                {TIPOS.map(t => (
+                  <Opcion
+                    key={t.id}
+                    icon={t.icon}
+                    activa={tipoComp === t.id}
+                    onClick={() => { setTipoComp(t.id); setRuc(''); setRazon(''); setDireccion(''); setErrorForm('') }}
+                  >
+                    {t.label}
+                  </Opcion>
+                ))}
               </div>
-            )}
-          </div>
-        )}
 
-        {/* Tipo de comprobante */}
-        <div className="bg-[#27272a] border border-[#3f3f46] rounded-2xl p-5">
-          <p className="text-white font-semibold mb-4">Tipo de comprobante</p>
-          <div className="grid grid-cols-2 gap-2">
-            {['boleta', 'factura'].map(t => (
-              <button
-                key={t}
-                onClick={() => { setTipoComp(t); setRuc(''); setRazon(''); setDireccion('') }}
-                className={`py-3 rounded-xl border text-sm font-medium transition-all capitalize
-                  ${tipoComp === t
-                    ? 'bg-[#f59e0b]/10 border-[#f59e0b]/60 text-[#f59e0b]'
-                    : 'bg-[#3f3f46] border-transparent text-[#a1a1aa] hover:text-white'
-                  }`}
-              >
-                {t === 'boleta' ? '🧾 Boleta' : '📄 Factura'}
-              </button>
-            ))}
-          </div>
-
-          {/* Campos boleta con DNI (opcional) */}
-          {tipoComp === 'boleta' && (
-            <div className="mt-4 space-y-3">
-              <input
-                value={ruc}
-                onChange={e => setRuc(e.target.value)}
-                placeholder="DNI del cliente (opcional)"
-                maxLength={8}
-                className="w-full bg-[#3f3f46] border border-[#52525b] rounded-xl px-4 py-2.5 text-white text-sm placeholder-[#71717a] focus:outline-none focus:border-[#f59e0b] transition-colors"
-              />
-              {ruc.length > 0 && (
-                <input
-                  value={razon}
-                  onChange={e => setRazon(e.target.value)}
-                  placeholder="Nombre del cliente (opcional)"
-                  className="w-full bg-[#3f3f46] border border-[#52525b] rounded-xl px-4 py-2.5 text-white text-sm placeholder-[#71717a] focus:outline-none focus:border-[#f59e0b] transition-colors"
-                />
+              {/* Boleta con DNI (opcional) */}
+              {tipoComp === 'boleta' && (
+                <div className="mt-4 space-y-3">
+                  <Campo id="dni" label="DNI del cliente (opcional)">
+                    <input
+                      id="dni"
+                      value={ruc}
+                      onChange={e => setRuc(e.target.value)}
+                      inputMode="numeric"
+                      maxLength={8}
+                      className={INPUT}
+                    />
+                  </Campo>
+                  {ruc.length > 0 && (
+                    <Campo id="nombre" label="Nombre del cliente (opcional)">
+                      <input id="nombre" value={razon} onChange={e => setRazon(e.target.value)} className={INPUT} />
+                    </Campo>
+                  )}
+                  <p className="text-muted text-caption">Déjalo vacío para boleta sin nombre.</p>
+                </div>
               )}
-              <p className="text-[#52525b] text-xs px-1">Déjalo vacío para boleta sin nombre</p>
-            </div>
-          )}
 
-          {/* Campos factura */}
-          {tipoComp === 'factura' && (
-            <div className="mt-4 space-y-3">
-              <input
-                value={ruc}
-                onChange={e => setRuc(e.target.value)}
-                placeholder="RUC del cliente *"
-                maxLength={11}
-                className="w-full bg-[#3f3f46] border border-[#52525b] rounded-xl px-4 py-2.5 text-white text-sm placeholder-[#71717a] focus:outline-none focus:border-[#f59e0b] transition-colors"
-              />
-              <input
-                value={razon}
-                onChange={e => setRazon(e.target.value)}
-                placeholder="Razón social"
-                className="w-full bg-[#3f3f46] border border-[#52525b] rounded-xl px-4 py-2.5 text-white text-sm placeholder-[#71717a] focus:outline-none focus:border-[#f59e0b] transition-colors"
-              />
-              <input
-                value={direccion}
-                onChange={e => setDireccion(e.target.value)}
-                placeholder="Dirección"
-                className="w-full bg-[#3f3f46] border border-[#52525b] rounded-xl px-4 py-2.5 text-white text-sm placeholder-[#71717a] focus:outline-none focus:border-[#f59e0b] transition-colors"
-              />
-            </div>
-          )}
+              {/* Factura */}
+              {tipoComp === 'factura' && (
+                <div className="mt-4 space-y-3">
+                  <Campo id="ruc" label="RUC del cliente (obligatorio)">
+                    <input
+                      id="ruc"
+                      value={ruc}
+                      onChange={e => { setRuc(e.target.value); setErrorForm('') }}
+                      inputMode="numeric"
+                      maxLength={11}
+                      aria-required="true"
+                      aria-invalid={!!errorForm && !ruc.trim()}
+                      className={INPUT}
+                    />
+                  </Campo>
+                  <Campo id="razon" label="Razón social">
+                    <input id="razon" value={razon} onChange={e => setRazon(e.target.value)} className={INPUT} />
+                  </Campo>
+                  <Campo id="direccion" label="Dirección">
+                    <input id="direccion" value={direccion} onChange={e => setDireccion(e.target.value)} className={INPUT} />
+                  </Campo>
+                </div>
+              )}
+            </Card>
+          </div>
         </div>
+      </main>
 
-        {/* Botón cobrar */}
-        <button
-          onClick={cobrar}
-          disabled={procesando || items.length === 0 || (metodo === 'efectivo' && montoPagado && pagado < bruto)}
-          className="w-full bg-[#f59e0b] text-black py-4 rounded-2xl text-lg font-bold hover:bg-[#d97706] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#f59e0b]/20"
-        >
-          {procesando ? (
-            <span className="flex items-center justify-center gap-2">
-              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-              </svg>
-              Procesando...
-            </span>
-          ) : `Cobrar S/ ${bruto.toFixed(2)}`}
-        </button>
-      </div>
+      {/* Barra de acción: total y único botón primario siempre visibles */}
+      <footer className="sticky bottom-0 bg-surface border-t border-line px-4 sm:px-6 py-3">
+        <div className="max-w-5xl mx-auto">
+          {errorForm && (
+            <p role="alert" className="mb-3 bg-danger/10 border border-danger/30 text-danger rounded-control px-4 py-2.5 flex items-center gap-2">
+              <AlertCircle className="size-5 shrink-0" aria-hidden="true" /> {errorForm}
+            </p>
+          )}
+          <div className="flex items-center gap-4">
+            <div className="shrink-0">
+              <p className="text-muted text-caption">Total a cobrar</p>
+              <p className="text-accent text-2xl sm:text-3xl font-bold num leading-tight">S/ {bruto.toFixed(2)}</p>
+            </div>
+            <Button
+              variant="primary"
+              size="lg"
+              block
+              loading={procesando}
+              disabled={sinItems || !!efectivoInsuficiente}
+              onClick={cobrar}
+              className="text-lg"
+            >
+              {procesando ? 'Procesando...' : `Cobrar S/ ${bruto.toFixed(2)}`}
+            </Button>
+          </div>
+        </div>
+      </footer>
 
       {modal && <ModalConfirm {...modal} onCancel={() => setModal(null)} />}
     </div>

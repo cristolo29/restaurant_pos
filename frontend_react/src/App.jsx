@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import PrivateRoute from './components/PrivateRoute'
 import Login   from './pages/Login'
@@ -5,11 +6,19 @@ import Mesas   from './pages/Mesas'
 import Comanda from './pages/Comanda'
 import Cobro   from './pages/Cobro'
 import Cocina  from './pages/Cocina'
-import Admin     from './pages/Admin'
-import Dashboard from './pages/Dashboard'
 import PorCobrar  from './pages/PorCobrar'
 import MisPedidos from './pages/MisPedidos'
 import AppShell from './components/AppShell'
+import { Spinner } from './components/ui'
+
+// Solo el admin los usa; separa Recharts y el CRUD del bundle principal
+const Admin = lazy(() => import('./pages/Admin'))
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Comprobantes = lazy(() => import('./pages/Comprobantes'))
+
+const cargandoPagina = (
+  <div className="grid place-items-center min-h-dvh"><Spinner className="size-8" /></div>
+)
 
 function App() {
   return (
@@ -53,12 +62,17 @@ function App() {
           } />
           <Route path="/admin" element={
             <PrivateRoute roles={['admin']}>
-              <Admin />
+              <Suspense fallback={cargandoPagina}><Admin /></Suspense>
+            </PrivateRoute>
+          } />
+          <Route path="/comprobantes" element={
+            <PrivateRoute roles={['admin']}>
+              <Suspense fallback={cargandoPagina}><Comprobantes /></Suspense>
             </PrivateRoute>
           } />
           <Route path="/dashboard" element={
             <PrivateRoute roles={['admin']}>
-              <Dashboard />
+              <Suspense fallback={cargandoPagina}><Dashboard /></Suspense>
             </PrivateRoute>
           } />
         </Route>

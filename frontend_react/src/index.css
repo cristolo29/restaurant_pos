@@ -1,1 +1,100 @@
+@import "@fontsource-variable/inter";
 @import "tailwindcss";
+
+/*
+ * Sistema de diseño Orbezo POS — tokens semánticos.
+ * Úsalos como utilidades de Tailwind: bg-app, bg-surface, text-muted, border-line,
+ * bg-accent, text-success, etc. No escribir colores hex sueltos en componentes.
+ */
+@theme {
+  /* Superficies */
+  --color-app: #18181b;
+  --color-sunken: #1f1f22;
+  --color-surface: #27272a;
+  --color-raised: #3f3f46;
+  --color-raised-hover: #52525b;
+
+  /* Bordes */
+  --color-line: #3f3f46;
+  --color-line-strong: #52525b;
+
+  /* Texto (todos ≥ 4.5:1 sobre surface) */
+  --color-ink: #fafafa;
+  --color-soft: #d4d4d8;
+  --color-muted: #a1a1aa;
+  --color-faint: #94949d;
+
+  /* Acento de marca */
+  --color-accent: #f59e0b;
+  --color-accent-hover: #d97706;
+  --color-on-accent: #18181b;
+
+  /* Estados semánticos */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-danger-hover: #dc2626;
+  --color-info: #3b82f6;
+  --color-info-hover: #2563eb;
+
+  /* Tipografía */
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --text-caption: 0.8125rem; /* 13px: mínimo para datos operativos */
+  --text-caption--line-height: 1.25rem;
+
+  --radius-control: 0.75rem;
+  --radius-panel: 1rem;
+}
+
+@layer base {
+  html {
+    background: var(--color-app);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    margin: 0;
+    background: var(--color-app);
+    min-height: 100dvh;
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  /* Importes y contadores alineados */
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@keyframes shake-x {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@utility animate-shake { animation: shake-x 0.4s ease-in-out; }
+@utility animate-pop-in { animation: pop-in 0.18s ease-out; }
+@utility animate-fade-in { animation: fade-in 0.15s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

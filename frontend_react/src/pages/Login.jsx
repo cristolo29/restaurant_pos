@@ -1,9 +1,14 @@
 import { useState } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
+import { Delete, UtensilsCrossed } from 'lucide-react'
 import useAuth from '../store/useAuth'
 import { login } from '../api/auth'
+import { Button, cn } from '../components/ui'
 
 import { homeParaRol } from '../config/navegacion'
+
+const LARGO_PIN = 6
+const TECLAS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'DEL', '0', 'OK']
 
 export default function Login() {
   const [pin, setPin] = useState('')
@@ -17,90 +22,99 @@ export default function Login() {
   if (usuario) return <Navigate to={homeParaRol(usuario.rol_nombre)} replace />
 
   const presionar = (val) => {
+    if (cargando) return
+    setError('')
     if (val === 'DEL') return setPin(p => p.slice(0, -1))
-    if (pin.length >= 6) return
+    if (pin.length >= LARGO_PIN) return
     setPin(p => p + val)
   }
 
   const ingresar = async () => {
-    if (!pin) return
+    if (!pin || cargando) return
     setCargando(true)
     setError('')
     try {
       const { usuario, access_token } = await login(pin)
       setUsuario(usuario, access_token)
       navigate(homeParaRol(usuario.rol_nombre), { replace: true })
-    } catch {
-      setError('PIN incorrecto. Intenta de nuevo.')
+    } catch (e) {
+      setError(e.response ? 'PIN incorrecto. Inténtalo de nuevo.' : 'No hay conexión con el servidor.')
       setPin('')
       setShake(true)
-      setTimeout(() => setShake(false), 500)
+      setTimeout(() => setShake(false), 450)
     } finally {
       setCargando(false)
     }
   }
 
-  const teclas = ['1','2','3','4','5','6','7','8','9','DEL','0','OK']
+  // Teclado físico (lector, PC): dígitos, borrar y Enter
+  const onKeyDown = (e) => {
+    if (/^\d$/.test(e.key)) presionar(e.key)
+    else if (e.key === 'Backspace') presionar('DEL')
+    else if (e.key === 'Enter') ingresar()
+  }
 
   return (
-    <div className="min-h-screen bg-[#18181b] flex items-center justify-center px-4">
+    <main className="min-h-dvh bg-app flex items-center justify-center px-4 py-8" onKeyDown={onKeyDown}>
       <div className="w-full max-w-sm">
 
-        {/* Logo */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#f59e0b]/10 border border-[#f59e0b]/25 mb-4">
-            <span className="text-2xl">🍽️</span>
+        <div className="text-center mb-8">
+          <div className="inline-grid place-items-center size-16 rounded-panel bg-accent/10 border border-accent/25 text-accent mb-4">
+            <UtensilsCrossed className="size-8" aria-hidden="true" />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Orbezo</h1>
-          <p className="text-[#71717a] text-sm mt-1">Resto Bar · Sistema de gestión</p>
+          <h1 className="text-3xl font-bold text-ink tracking-tight">Orbezo</h1>
+          <p className="text-muted text-sm mt-1">Resto Bar · Punto de venta</p>
         </div>
 
-        {/* Card */}
-        <div className="bg-[#27272a] border border-[#3f3f46] rounded-3xl p-8 shadow-2xl">
-          <p className="text-[#a1a1aa] text-sm text-center mb-6">Ingresa tu PIN de acceso</p>
+        <div className="bg-surface border border-line rounded-panel p-6 sm:p-8 shadow-2xl">
+          <p id="pin-label" className="text-soft text-sm text-center mb-5">Ingresa tu PIN de acceso</p>
 
-          {/* Puntos */}
-          <div className={`flex justify-center gap-3 mb-6 ${shake ? 'animate-bounce' : ''}`}>
-            {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            role="img"
+            aria-labelledby="pin-label"
+            aria-description={`${pin.length} de ${LARGO_PIN} dígitos`}
+            className={cn('flex justify-center gap-3 mb-4', shake && 'animate-shake')}
+          >
+            {Array.from({ length: LARGO_PIN }).map((_, i) => (
               <div
                 key={i}
-                className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-200 ${
-                  i < pin.length
-                    ? 'bg-[#f59e0b] border-[#f59e0b] scale-110'
-                    : 'bg-transparent border-[#52525b]'
-                }`}
+                className={cn(
+                  'size-4 rounded-full border-2 transition-all duration-150',
+                  i < pin.length ? 'bg-accent border-accent scale-110' : 'border-line-strong',
+                )}
               />
             ))}
           </div>
 
-          {/* Error */}
-          <div className={`text-center mb-4 h-5 transition-opacity ${error ? 'opacity-100' : 'opacity-0'}`}>
-            <span className="text-amber-300 text-xs">{error}</span>
+          <div className="h-6 mb-3 text-center" role="alert" aria-live="assertive">
+            {error && <span className="text-danger text-sm font-medium">{error}</span>}
           </div>
 
-          {/* Teclado */}
-          <div className="grid grid-cols-3 gap-2.5">
-            {teclas.map(t => (
-              <button
-                key={t}
-                onClick={() => t === 'OK' ? ingresar() : presionar(t)}
-                disabled={cargando}
-                className={`h-14 rounded-xl text-lg font-semibold transition-all active:scale-95 disabled:opacity-40
-                  ${t === 'OK'
-                    ? 'bg-[#f59e0b] text-black hover:bg-[#d97706] shadow-lg shadow-[#f59e0b]/20'
-                    : t === 'DEL'
-                    ? 'bg-[#3f3f46] text-[#a1a1aa] hover:bg-[#52525b] hover:text-white'
-                    : 'bg-[#3f3f46] text-white hover:bg-[#52525b]'
-                  }`}
-              >
-                {cargando && t === 'OK' ? '...' : t}
-              </button>
-            ))}
+          <div className="grid grid-cols-3 gap-3">
+            {TECLAS.map(t => {
+              if (t === 'OK') {
+                return (
+                  <Button key={t} variant="primary" size="lg" onClick={ingresar} loading={cargando} disabled={!pin} aria-label="Ingresar" className="text-lg">
+                    {!cargando && 'OK'}
+                  </Button>
+                )
+              }
+              if (t === 'DEL') {
+                return (
+                  <Button key={t} variant="secondary" size="lg" iconOnly icon={Delete} onClick={() => presionar(t)} disabled={cargando || !pin} aria-label="Borrar último dígito" className="w-full" />
+                )
+              }
+              return (
+                <Button key={t} variant="secondary" size="lg" onClick={() => presionar(t)} disabled={cargando} className="text-xl num bg-raised hover:bg-raised-hover text-ink">
+                  {t}
+                </Button>
+              )
+            })}
           </div>
         </div>
 
-        <p className="text-center text-[#3f3f46] text-xs mt-6">Orbezo POS v2.0</p>
+        <p className="text-center text-faint text-xs mt-6">Orbezo POS v2.0</p>
       </div>
-    </div>
+    </main>
   )
 }

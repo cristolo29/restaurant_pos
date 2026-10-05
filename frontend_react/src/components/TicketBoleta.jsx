@@ -1,6 +1,8 @@
 /**
  * TicketBoleta — comprobante en formato ticketera 80mm.
  * En pantalla es invisible. Al hacer window.print() solo se imprime este ticket.
+ * Los colores #000/#fff son intencionales: el papel térmico siempre es blanco/negro,
+ * independiente del tema oscuro de la app (no usar tokens aquí).
  */
 export default function TicketBoleta({ comprobante, mesa, metodo, vuelto, montoPagado }) {
   const ahora = new Date()
@@ -37,6 +39,7 @@ export default function TicketBoleta({ comprobante, mesa, metodo, vuelto, montoP
           font-family: 'Courier New', Courier, monospace;
           font-size: 11px;
           color: #000;
+          background: #fff;
           line-height: 1.5;
           width: 76mm;
         }
