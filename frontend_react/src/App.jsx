@@ -5,6 +5,7 @@ import Login   from './pages/Login'
 import Mesas   from './pages/Mesas'
 import Comanda from './pages/Comanda'
 import Cobro   from './pages/Cobro'
+import Caja    from './pages/Caja'
 import Cocina  from './pages/Cocina'
 import PorCobrar  from './pages/PorCobrar'
 import MisPedidos from './pages/MisPedidos'
@@ -43,6 +44,11 @@ function App() {
           <Route path="/cobro" element={
             <PrivateRoute roles={['cajero', 'admin']}>
               <Cobro />
+            </PrivateRoute>
+          } />
+          <Route path="/caja" element={
+            <PrivateRoute roles={['cajero', 'admin']}>
+              <Caja />
             </PrivateRoute>
           } />
           <Route path="/por-cobrar" element={

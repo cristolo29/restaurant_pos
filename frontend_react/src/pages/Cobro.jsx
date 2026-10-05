@@ -1,11 +1,11 @@
-import { useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useRef, useState } from 'react'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   ArrowLeft, Banknote, CreditCard, Smartphone, QrCode, Receipt, FileText,
-  StickyNote, Printer, CheckCircle2, AlertCircle, Store,
+  StickyNote, CheckCircle2, AlertCircle, Store, Vault,
 } from 'lucide-react'
-import { cerrarPedido } from '../api/pedidos'
-import { emitirComprobante } from '../api/comprobantes'
+import { cobrarPedido } from '../api/pedidos'
+import useCaja from '../store/useCaja'
 import TicketBoleta from '../components/TicketBoleta'
 import ModalConfirm from '../components/ModalConfirm'
 import { Button, Card, PageHeader, EmptyState, cn } from '../components/ui'
@@ -21,6 +21,9 @@ const TIPOS = [
   { id: 'boleta',  label: 'Boleta',  icon: Receipt },
   { id: 'factura', label: 'Factura', icon: FileText },
 ]
+
+// Redondeo a 2 decimales para no enviar restos de coma flotante (0.30000000000000004).
+const r2 = n => Math.round((n + Number.EPSILON) * 100) / 100
 
 const INPUT = 'w-full min-h-12 bg-sunken border border-line-strong rounded-control px-4 text-ink text-base placeholder:text-faint focus:outline-none focus:border-accent aria-[invalid=true]:border-danger transition-colors'
 
@@ -69,6 +72,10 @@ export default function Cobro() {
   const [comprobante, setComprobante] = useState(null)
   const [modal, setModal] = useState(null)
   const [errorForm, setErrorForm] = useState('')
+  const caja = useCaja(s => s.caja)
+  const cajaCargada = useCaja(s => s.cargada)
+  const sinCaja = cajaCargada && !caja  // el servidor es la autoridad: esto solo evita el intento inútil
+  const enVuelo = useRef(false) // evita doble cobro aunque el botón se toque dos veces antes de repintar
 
   if (!pedido) {
     navigate('/mesas')
@@ -96,29 +103,31 @@ export default function Cobro() {
       return acc
     }, {})
   )
-  const bruto    = items.reduce((s, i) => s + Number(i.subtotal), 0)
-  const igv      = bruto * 0.18 / 1.18
-  const subtotal = bruto - igv
-  const pagado   = parseFloat(montoPagado) || 0
-  const vuelto   = pagado > bruto ? pagado - bruto : 0
+  const bruto    = r2(items.reduce((s, i) => s + Number(i.subtotal), 0))
+  const igv      = r2(bruto * 0.18 / 1.18)
+  const subtotal = r2(bruto - igv)
+  const pagado   = r2(parseFloat(montoPagado) || 0)
+  const vuelto   = pagado > bruto ? r2(pagado - bruto) : 0
 
+  // Una sola llamada: el servidor valida, cierra, libera la mesa y emite el comprobante, o no hace nada.
   // Lanza el error para que quien llama decida cómo mostrarlo.
   const ejecutarCobro = async () => {
+    if (enVuelo.current) return
+    enVuelo.current = true
     setProcesando(true)
     try {
-      await cerrarPedido(pedido.id)
-      const comp = await emitirComprobante({
-        pedido_id:         pedido.id,
+      const res = await cobrarPedido(pedido.id, {
         tipo:              tipoComp,
         metodo_pago:       metodo,
-        monto_pagado:      metodo === 'efectivo' && montoPagado ? parseFloat(montoPagado) : bruto,
-        vuelto:            vuelto,
+        monto_pagado:      metodo === 'efectivo' && montoPagado ? pagado : bruto,
+        vuelto:            metodo === 'efectivo' && montoPagado ? vuelto : 0,
         nro_doc_cliente:   ruc || null,
         razon_social:      razon || null,
         direccion_cliente: direccion || null,
       })
-      setComprobante(comp)
+      setComprobante(res.comprobante)
     } catch (e) {
+      enVuelo.current = false
       setProcesando(false)
       throw e
     }
@@ -126,8 +135,8 @@ export default function Cobro() {
 
   const cobrar = async () => {
     setErrorForm('')
-    if (tipoComp === 'factura' && !ruc.trim()) {
-      setErrorForm('La factura requiere el RUC del cliente.')
+    if (tipoComp === 'factura' && !/^\d{11}$/.test(ruc.trim())) {
+      setErrorForm('La factura requiere el RUC del cliente (11 dígitos).')
       return
     }
     // Confirmación para métodos digitales (no hay monto ingresado manualmente)
@@ -145,7 +154,13 @@ export default function Cobro() {
     try {
       await ejecutarCobro()
     } catch (e) {
-      setErrorForm(e.response?.data?.detail || 'Ocurrió un error inesperado al procesar el cobro.')
+      const detail = e.response?.data?.detail
+      if (e.response?.status === 409) useCaja.getState().cargar() // p. ej. la caja se cerró en otra pestaña
+      setErrorForm(
+        typeof detail === 'string' ? detail
+          : e.response ? 'Revisa los datos del cobro e intenta de nuevo.'
+          : 'Sin conexión con el servidor. El pedido sigue abierto; reintenta.',
+      )
     }
   }
 
@@ -185,20 +200,19 @@ export default function Cobro() {
             <Button variant="primary" size="lg" block onClick={() => navigate('/mesas')}>
               Volver a mesas
             </Button>
-            <Button variant="secondary" size="lg" block icon={Printer} onClick={() => window.print()}>
-              Imprimir comprobante
-            </Button>
           </div>
-        </div>
 
-        {/* Ticket oculto en pantalla, visible solo al imprimir */}
-        <TicketBoleta
-          comprobante={comprobante}
-          mesa={mesa}
-          metodo={metodo}
-          vuelto={vuelto}
-          montoPagado={montoPagado}
-        />
+          {/* Formato (A4 / Ticket 80 mm) e Imprimir; la copia de impresión vive fuera de la app */}
+          <Card className="p-4 mt-4">
+            <TicketBoleta
+              comprobante={comprobante}
+              mesa={mesa}
+              metodo={metodo}
+              vuelto={vuelto}
+              montoPagado={montoPagado}
+            />
+          </Card>
+        </div>
         {modal && <ModalConfirm {...modal} onCancel={() => setModal(null)} />}
       </main>
     )
@@ -220,6 +234,21 @@ export default function Cobro() {
           </Button>
         </div>
         <PageHeader title={`Cobro · Mesa ${mesa?.numero ?? ''}`} subtitle="Revisa la cuenta y elige cómo paga el cliente" />
+
+        {sinCaja && (
+          <div role="alert" className="mb-4 bg-warning/10 border border-warning/40 rounded-control px-4 py-3 flex items-center gap-3 flex-wrap">
+            <Vault className="size-6 text-warning shrink-0" aria-hidden="true" />
+            <p className="flex-1 min-w-48 text-warning font-semibold">
+              No tienes una caja abierta. Ábrela para poder cobrar.
+            </p>
+            <Link
+              to="/caja"
+              className="inline-flex items-center justify-center min-h-12 px-5 rounded-control bg-accent text-on-accent font-semibold hover:bg-accent-hover transition-colors"
+            >
+              Ir a Caja
+            </Link>
+          </div>
+        )}
 
         <div className="grid gap-4 lg:grid-cols-2 items-start">
           {/* Resumen del pedido */}
@@ -416,7 +445,7 @@ export default function Cobro() {
               size="lg"
               block
               loading={procesando}
-              disabled={sinItems || !!efectivoInsuficiente}
+              disabled={sinItems || !!efectivoInsuficiente || sinCaja}
               onClick={cobrar}
               className="text-lg"
             >

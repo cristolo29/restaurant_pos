@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field, field_validator, model_validator
-from typing import Optional, List, Literal
+from decimal import Decimal
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
+from typing import Annotated, Optional, List, Literal
 
 
 # --- Categorias ---
@@ -159,8 +160,8 @@ class PedidoDetalleResponse(PedidoResponse):
 
 # --- Comprobantes ---
 
-class ComprobanteCreate(BaseModel):
-    pedido_id:          int
+class CobroCreate(BaseModel):
+    """Datos de pago y de cliente para cobrar un pedido (el total lo calcula el servidor)."""
     tipo:               Literal["boleta", "factura"]
     metodo_pago:        Literal["efectivo", "tarjeta", "yape", "plin"] = "efectivo"
     monto_pagado:       float = Field(default=0, ge=0)
@@ -168,6 +169,10 @@ class ComprobanteCreate(BaseModel):
     nro_doc_cliente:    Optional[str] = None
     razon_social:       Optional[str] = None
     direccion_cliente:  Optional[str] = None
+
+
+class ComprobanteCreate(CobroCreate):
+    pedido_id:          int
 
 
 class ComprobanteItemResponse(BaseModel):
@@ -198,6 +203,8 @@ class ComprobanteResponse(BaseModel):
     descuento:         float = 0
     total:             float
     estado_sunat:      str
+    mesa:              Optional[str] = None
+    atendido_por:      Optional[str] = None
     created_at:        Optional[str] = None
     items:             List[ComprobanteItemResponse] = []
 
@@ -224,3 +231,26 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     usuario: LoginResponse
+
+
+# --- Caja ---
+
+class CajaAbrir(BaseModel):
+    monto_inicial: Decimal = Field(ge=0, le=Decimal("9999999.99"), max_digits=10, decimal_places=2)
+
+
+class CajaCerrar(BaseModel):
+    # hide_input_in_errors: un error de validación del PIN de autorización nunca lo repite en la respuesta.
+    model_config = ConfigDict(hide_input_in_errors=True)
+    monto_contado: Decimal = Field(ge=0, le=Decimal("9999999.99"), max_digits=10, decimal_places=2)
+    observaciones: Optional[str] = Field(default=None, max_length=500)
+    # Cantidad de billetes/monedas por denominación; el servidor verifica que sume monto_contado.
+    conteo: Optional[dict[str, Annotated[int, Field(strict=True, ge=0, le=100000)]]] = None
+    # PIN de un administrador: solo si la diferencia supera la tolerancia. Nunca se registra ni se devuelve.
+    pin_autorizacion: Optional[str] = Field(default=None, repr=False)
+
+
+class CajaMovimientoCrear(BaseModel):
+    tipo: Literal["ingreso", "egreso", "retiro"]
+    monto: Decimal = Field(gt=0, le=Decimal("9999999.99"), max_digits=10, decimal_places=2)
+    motivo: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=200)]

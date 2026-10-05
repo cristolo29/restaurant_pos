@@ -4,6 +4,7 @@ import { LogOut, UtensilsCrossed, Wifi, WifiOff } from 'lucide-react'
 import useAuth from '../store/useAuth'
 import useMesas from '../store/useMesas'
 import useConexion from '../store/useConexion'
+import useCaja from '../store/useCaja'
 import { destinosParaRol, mostrarBarra, etiquetaRol } from '../config/navegacion'
 import { mesasPorCobrar, totalPlatosListos } from '../utils/mesasDerivadas'
 import { Toaster, cn } from './ui'
@@ -16,6 +17,16 @@ function Badge({ n }) {
       className="num absolute top-1.5 right-3 md:right-4 min-w-5 h-5 px-1 rounded-full bg-danger text-white text-xs font-bold leading-5 text-center"
     >
       {n}
+    </span>
+  )
+}
+
+/** Estado de la caja bajo la etiqueta del destino: texto + punto, nunca solo color. */
+function EstadoCaja({ abierta }) {
+  return (
+    <span className={cn('flex items-center gap-1 text-[0.6875rem] font-semibold leading-none', abierta ? 'text-success' : 'text-warning')}>
+      <span aria-hidden="true" className={cn('size-1.5 rounded-full', abierta ? 'bg-success' : 'bg-warning')} />
+      {abierta ? 'Abierta' : 'Cerrada'}
     </span>
   )
 }
@@ -38,6 +49,8 @@ export default function AppShell() {
   const cerrarSesion = useAuth(s => s.cerrarSesion)
   const mesas = useMesas(s => s.mesas)
   const enLinea = useConexion(s => s.enLinea)
+  const caja = useCaja(s => s.caja)
+  const cajaCargada = useCaja(s => s.cargada)
   const { pathname } = useLocation()
   const navigate = useNavigate()
 
@@ -62,6 +75,14 @@ export default function AppShell() {
   }, [pathname, usuarioId, rol])
 
   useEffect(() => useConexion.getState().iniciarEscucha(), [])
+
+  // Cajero/admin: conocer si hay caja abierta (para el indicador y para avisar en Cobro).
+  const usaCaja = rol === 'cajero' || rol === 'admin'
+  useEffect(() => {
+    if (usuarioId == null || !usaCaja) return
+    useCaja.getState().cargar()
+  }, [usuarioId, usaCaja, pathname])
+  useEffect(() => () => useCaja.getState().limpiar(), [usuarioId])
 
   const destinos = destinosParaRol(rol)
   const conBarra = destinos.length > 0 && mostrarBarra(rol, pathname)
@@ -135,6 +156,7 @@ export default function AppShell() {
             <NavLink key={d.id} to={d.path} className={claseLateral}>
               <d.icono className="size-6" aria-hidden="true" />
               <span>{d.label}</span>
+              {d.id === 'caja' && cajaCargada && <EstadoCaja abierta={!!caja} />}
               <Badge n={badges[d.id]} />
             </NavLink>
           ))}
@@ -183,9 +205,11 @@ export default function AppShell() {
       {/* Barra inferior (< md) */}
       <nav aria-label="Principal" className="md:hidden fixed bottom-0 inset-x-0 h-16 z-40 flex bg-sunken border-t border-line">
         {destinos.map(d => (
-          <NavLink key={d.id} to={d.path} className={claseInferior} aria-label={d.label}>
+          <NavLink key={d.id} to={d.path} className={claseInferior}
+            aria-label={d.id === 'caja' && cajaCargada ? `Caja ${caja ? 'abierta' : 'cerrada'}` : d.label}>
             <d.icono className="size-6" aria-hidden="true" />
             <span aria-hidden="true">{d.corto ?? d.label}</span>
+            {d.id === 'caja' && cajaCargada && <EstadoCaja abierta={!!caja} />}
             <Badge n={badges[d.id]} />
           </NavLink>
         ))}

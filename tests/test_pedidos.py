@@ -9,15 +9,22 @@ def test_abrir_pedido_mesa_disponible(client, auth_mozo, mesa, usuario_mozo):
     assert r.json()["estado"] == "abierto"
 
 
-def test_abrir_pedido_mesa_ocupada(client, auth_mozo, mesa, usuario_mozo, db):
-    """No se puede abrir un pedido en una mesa ya ocupada."""
-    from app import models
-    mesa.estado = "ocupada"
+def test_abrir_pedido_mesa_reservada_falla(client, auth_mozo, mesa, usuario_mozo, db):
+    """No se puede abrir un pedido en una mesa reservada."""
+    mesa.estado = "reservada"
     db.commit()
     r = client.post("/api/pedidos", json={
         "mesa_id": mesa.id, "usuario_id": usuario_mozo.id
     }, headers=auth_mozo)
     assert r.status_code == 400
+
+
+def test_abrir_pedido_mesa_ocupada_sin_pedido_abierto_funciona(client, auth_mozo, mesa, usuario_mozo, db):
+    """Una mesa «ocupada» sin pedido abierto (estado huérfano) sí admite pedido nuevo."""
+    mesa.estado = "ocupada"
+    db.commit()
+    r = client.post("/api/pedidos", json={"mesa_id": mesa.id}, headers=auth_mozo)
+    assert r.status_code == 200
 
 
 def test_agregar_item_al_pedido(client, auth_mozo, mesa, usuario_mozo, producto):
@@ -72,6 +79,11 @@ def test_flujo_completo(client, auth_mozo, auth_cajero, mesa, usuario_mozo, prod
     client.post(f"/api/pedidos/{pedido['id']}/items", json={
         "producto_id": producto.id, "cantidad": 1
     }, headers=auth_mozo)
+
+    # Cocina termina el ítem (cerrar exige que no haya ítems pendientes)
+    detalle = client.get(f"/api/pedidos/{pedido['id']}", headers=auth_cajero).json()
+    for it in detalle["items"]:
+        client.put(f"/api/pedidos/items/{it['id']}/estado", json={"estado": "listo"}, headers=auth_cajero)
 
     # Cerrar
     r = client.put(f"/api/pedidos/{pedido['id']}/cerrar", headers=auth_cajero)

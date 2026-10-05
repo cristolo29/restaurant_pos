@@ -141,8 +141,10 @@ def test_pedido_nuevo_tras_cerrar_o_anular(db, mesa, usuario_mozo):
 
 def test_segundo_comprobante_via_api_sigue_siendo_400(client, auth_cajero, db, base):
     """La validación de la app va antes que la restricción: 400, no 409 ni 500."""
+    db.add(base.item(estado="entregado"))  # total S/ 10: el pago se valida contra los ítems
+    db.commit()
     payload = {"pedido_id": base.pedido.id, "tipo": "boleta", "metodo_pago": "efectivo",
-               "monto_pagado": 20.0, "vuelto": 0}
+               "monto_pagado": 20.0, "vuelto": 10.0}
     r1 = client.post("/api/comprobantes", json=payload, headers=auth_cajero)
     assert r1.status_code == 200, r1.text
     r2 = client.post("/api/comprobantes", json=payload, headers=auth_cajero)

@@ -1,0 +1,85 @@
+/*
+ * Documento del comprobante (A4 y ticket de 80 mm).
+ * Es papel: blanco y negro SIEMPRE (no usa los tokens del tema oscuro). Sin grises claros ni fondos,
+ * para que se lea igual en láser y en térmica. Líneas negras; énfasis con tamaño, peso y recuadros.
+ */
+.cp-doc {
+  background: #fff;
+  color: #000;
+  font-family: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  box-sizing: border-box;
+}
+.cp-doc *, .cp-doc *::before, .cp-doc *::after { box-sizing: inherit; }
+.cp-doc p, .cp-doc h1, .cp-doc h2, .cp-doc dl, .cp-doc dd { margin: 0; }
+.cp-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cp-b { font-weight: 700; }
+.cp-logo { display: block; max-width: 100%; object-fit: contain; }
+
+/* La copia de impresión vive fuera de la app: invisible en pantalla. */
+.cp-print { display: none; }
+
+/* ───────────── A4 ───────────── */
+.cp-a4 { font-size: 13px; line-height: 1.45; padding: 24px; }
+.cp-a4 .cp-cab { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.cp-a4 .cp-emisor { flex: 1 1 220px; display: flex; gap: 14px; align-items: flex-start; }
+.cp-a4 .cp-emisor .cp-logo { max-height: 18mm; max-width: 32mm; }
+.cp-a4 .cp-emisor h1 { font-size: 1.55em; line-height: 1.15; font-weight: 800; }
+.cp-a4 .cp-caja { flex: 0 1 62mm; border: 2px solid #000; border-radius: 6px; padding: 10px 14px; text-align: center; }
+.cp-a4 .cp-caja .cp-ruc { font-weight: 700; }
+.cp-a4 .cp-caja .cp-tipo { font-size: 1.08em; font-weight: 800; letter-spacing: .02em; margin-top: 4px; }
+.cp-a4 .cp-caja .cp-nro { font-size: 1.35em; font-weight: 800; margin-top: 2px; }
+.cp-a4 .cp-datos { margin-top: 16px; border: 1px solid #000; border-radius: 4px; padding: 8px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 24px; }
+.cp-a4 .cp-datos .cp-fila { display: flex; gap: 8px; }
+.cp-a4 .cp-datos .cp-fila dt { font-weight: 700; flex: none; }
+.cp-a4 .cp-datos .cp-fila dt::after { content: ":"; }
+.cp-a4 .cp-datos .cp-ancho { grid-column: 1 / -1; }
+.cp-a4 .cp-datos .cp-sep { grid-column: 1 / -1; border-top: 1px solid #000; margin: 4px 0; }
+.cp-a4 table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+.cp-a4 thead { display: table-header-group; }
+.cp-a4 tr { break-inside: avoid; page-break-inside: avoid; }
+.cp-a4 th { font-weight: 700; text-align: left; padding: 6px 8px; border-top: 2px solid #000; border-bottom: 2px solid #000; }
+.cp-a4 td { padding: 6px 8px; border-bottom: 1px solid #000; vertical-align: top; overflow-wrap: anywhere; }
+.cp-a4 .cp-c { width: 15mm; text-align: center; }
+.cp-a4 .cp-d { width: auto; }
+.cp-a4 .cp-r { text-align: right; width: 28mm; }
+.cp-a4 .cp-cierre { break-inside: avoid; page-break-inside: avoid; margin-top: 14px; }
+.cp-a4 .cp-totales { margin-left: auto; width: 82mm; max-width: 100%; }
+.cp-a4 .cp-tot { display: flex; justify-content: space-between; gap: 16px; padding: 2px 0; }
+.cp-a4 .cp-tot-total { margin-top: 4px; padding: 6px 0; border-top: 2px solid #000; border-bottom: 2px solid #000; font-size: 1.45em; font-weight: 800; }
+.cp-a4 .cp-letras { margin-top: 12px; font-weight: 700; overflow-wrap: anywhere; }
+.cp-a4 .cp-pie { margin-top: 18px; padding-top: 10px; border-top: 1px solid #000; text-align: center; }
+.cp-a4 .cp-leyenda { font-size: .9em; margin-bottom: 4px; }
+
+/* ───────────── Ticket 80 mm (zona imprimible ≈ 72 mm) ───────────── */
+.cp-ticket { width: 72mm; max-width: 100%; margin: 0 auto; padding: 3mm 0; font-size: 12px; line-height: 1.35; }
+.cp-ticket .cp-cen { text-align: center; }
+.cp-ticket .cp-logo { max-height: 16mm; margin: 0 auto 2mm; }
+.cp-ticket h1 { font-size: 15px; font-weight: 800; line-height: 1.2; }
+.cp-ticket .cp-linea { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
+.cp-ticket .cp-linea-s { border-top: 1.5px solid #000; }
+.cp-ticket .cp-tipo { font-size: 14px; font-weight: 800; }
+.cp-ticket .cp-nro { font-size: 16px; font-weight: 800; }
+.cp-ticket .cp-par { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.cp-ticket .cp-par > :first-child { flex: none; }
+.cp-ticket .cp-par > :last-child { text-align: right; overflow-wrap: anywhere; }
+.cp-ticket .cp-item { break-inside: avoid; page-break-inside: avoid; margin-bottom: 4px; }
+.cp-ticket .cp-item-desc { overflow-wrap: anywhere; font-weight: 600; }
+.cp-ticket .cp-cols { font-weight: 800; }
+.cp-ticket .cp-total { font-size: 16px; font-weight: 800; }
+.cp-ticket .cp-letras { font-weight: 700; overflow-wrap: anywhere; }
+.cp-ticket .cp-peq { font-size: 11px; }
+
+/* ───────────── Impresión: solo el documento ───────────── */
+@media print {
+  /* Solo si hay un documento para imprimir: no afecta a otras impresiones (arqueo, movimientos). */
+  html:has(body > .cp-print), body:has(> .cp-print) { background: #fff !important; margin: 0 !important; padding: 0 !important; min-height: 0 !important; height: auto !important; }
+  body:has(> .cp-print) > *:not(.cp-print) { display: none !important; }
+  .cp-print { display: block; }
+  .cp-a4 { font-size: 10pt; padding: 0; }
+  .cp-a4 .cp-caja, .cp-a4 .cp-datos { border-radius: 0; }
+  .cp-ticket { padding: 2mm 0; }
+}
+/* Medición del alto del ticket para fijar el tamaño de página (ver impresion.js). */
+.cp-medir { display: block !important; position: absolute !important; left: -9999px; top: 0; visibility: hidden; }

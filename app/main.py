@@ -1,9 +1,12 @@
 import os
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import IntegrityError
 from app.integridad import manejar_integrity_error
-from app.routers import auth, categorias, productos, mesas, pedidos, comprobantes, usuarios, salones, dashboard
+from app.routers import auth, categorias, productos, mesas, pedidos, comprobantes, usuarios, salones, dashboard, caja
 
 app = FastAPI(
     title="Orbezo Resto Bar API",
@@ -22,6 +25,19 @@ app.add_middleware(
 
 app.add_exception_handler(IntegrityError, manejar_integrity_error)
 
+
+async def manejar_error_validacion(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """422 estándar de FastAPI, salvo que nunca repite el valor enviado en un campo de PIN (secreto)."""
+    errores = []
+    for e in exc.errors():
+        if any("pin" in str(parte).lower() for parte in e.get("loc", ())):
+            e = {k: v for k, v in e.items() if k not in ("input", "ctx")}
+        errores.append(e)
+    return JSONResponse(status_code=422, content={"detail": jsonable_encoder(errores)})
+
+
+app.add_exception_handler(RequestValidationError, manejar_error_validacion)
+
 app.include_router(auth.router)
 app.include_router(categorias.router)
 app.include_router(productos.router)
@@ -31,6 +47,7 @@ app.include_router(comprobantes.router)
 app.include_router(usuarios.router)
 app.include_router(salones.router)
 app.include_router(dashboard.router)
+app.include_router(caja.router)
 
 
 @app.get("/")

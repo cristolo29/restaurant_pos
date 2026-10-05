@@ -13,7 +13,13 @@ def _crear_pedido_cerrado(client, auth_mozo, auth_cajero, mesa, usuario_mozo, pr
         "producto_id": producto.id, "cantidad": 2
     }, headers=auth_mozo)
 
-    client.put(f"/api/pedidos/{pedido['id']}/cerrar", headers=auth_cajero)
+    # Cerrar exige que cocina ya haya terminado: los ítems pasan a «listo».
+    detalle = client.get(f"/api/pedidos/{pedido['id']}", headers=auth_cajero).json()
+    for it in detalle["items"]:
+        client.put(f"/api/pedidos/items/{it['id']}/estado", json={"estado": "listo"}, headers=auth_cajero)
+
+    r = client.put(f"/api/pedidos/{pedido['id']}/cerrar", headers=auth_cajero)
+    assert r.status_code == 200, r.text
     return pedido
 
 
@@ -39,7 +45,7 @@ def test_emitir_boleta(client, auth_cajero, auth_mozo, mesa, usuario_mozo, produ
         "tipo":        "boleta",
         "metodo_pago": "efectivo",
         "monto_pagado": 60.0,
-        "vuelto":      3.96,
+        "vuelto":      4.0,
     }, headers=auth_cajero)
     assert r.status_code == 200
     data = r.json()
@@ -155,3 +161,37 @@ def test_listar_comprobantes_incluye_descuento_e_items(client, auth_admin, db, m
 
     r = client.get(f"/api/comprobantes/{comp.id}", headers=auth_admin)
     assert r.json()["descuento"] == pytest.approx(5.0)
+
+
+def test_comprobante_trae_mesa_y_quien_cobro(client, auth_cajero, auth_mozo, auth_admin, mesa, usuario_mozo, usuario_cajero, producto, serie_boleta):
+    """El documento impreso muestra la mesa y quién atendió/cobró (cajero), sin consultas extra en el cliente."""
+    pedido = _crear_pedido_cerrado(client, auth_mozo, auth_cajero, mesa, usuario_mozo, producto)
+    r = client.post("/api/comprobantes", json={
+        "pedido_id": pedido["id"], "tipo": "boleta", "metodo_pago": "efectivo", "monto_pagado": 60.0, "vuelto": 4.0,
+    }, headers=auth_cajero)
+    assert r.status_code == 200, r.text
+    assert r.json()["mesa"] == mesa.numero
+    assert r.json()["atendido_por"] == usuario_cajero.nombre
+
+    cid = r.json()["id"]
+    assert client.get(f"/api/comprobantes/{cid}", headers=auth_cajero).json()["atendido_por"] == usuario_cajero.nombre
+    lista = client.get("/api/comprobantes", headers=auth_admin).json()
+    assert lista[0]["mesa"] == mesa.numero and lista[0]["atendido_por"] == usuario_cajero.nombre
+
+
+def test_items_del_comprobante_salen_en_orden_de_emision(client, auth_cajero, auth_mozo, mesa, usuario_mozo, producto, serie_boleta, db):
+    """Sin ORDER BY, una fila actualizada cambia de lugar y el documento impreso mezclaba el orden de los platos."""
+    pedido = _crear_pedido_cerrado(client, auth_mozo, auth_cajero, mesa, usuario_mozo, producto)
+    r = client.post("/api/comprobantes", json={
+        "pedido_id": pedido["id"], "tipo": "boleta", "metodo_pago": "efectivo", "monto_pagado": 60.0, "vuelto": 4.0,
+    }, headers=auth_cajero)
+    cid = r.json()["id"]
+    for nombre in ("Segundo", "Tercero"):
+        db.add(models.ComprobanteItem(comprobante_id=cid, descripcion=nombre, cantidad=1, precio_unit=1, subtotal=1, igv_item=0))
+    db.commit()
+    primero = db.query(models.ComprobanteItem).filter_by(comprobante_id=cid).order_by(models.ComprobanteItem.id).first()
+    primero.descripcion = "Primero (editado)"
+    db.commit()
+
+    nombres = [i["descripcion"] for i in client.get(f"/api/comprobantes/{cid}", headers=auth_cajero).json()["items"]]
+    assert nombres == ["Primero (editado)", "Segundo", "Tercero"]

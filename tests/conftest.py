@@ -15,7 +15,7 @@ from app.database import Base, get_db
 from app.security import create_access_token
 from app import models
 from app.pinhash import hash_pin
-from app.ratelimit import login_limiter
+from app.ratelimit import login_limiter, autorizacion_limiter
 
 # ── Base de datos de prueba ────────────────────────────────────────────────────
 TEST_DB_URL = "postgresql://admin:1234@localhost:5432/orbezo_test"
@@ -46,6 +46,7 @@ def limpiar_bd():
     """Crea las tablas antes del test y las elimina al terminar."""
     Base.metadata.create_all(bind=engine_test)
     login_limiter.limpiar()
+    autorizacion_limiter.limpiar()
     yield
     Base.metadata.drop_all(bind=engine_test)
 
@@ -194,3 +195,13 @@ def producto(db, categoria):
     db.commit()
     db.refresh(p)
     return p
+
+
+@pytest.fixture
+def caja_cajero(db, usuario_cajero):
+    """Caja abierta del cajero de pruebas (fondo S/ 100)."""
+    c = models.Caja(usuario_id=usuario_cajero.id, monto_inicial=100, estado="abierta")
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    return c

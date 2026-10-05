@@ -152,11 +152,56 @@ CREATE TABLE IF NOT EXISTS orbezo.pedido_item (
     CONSTRAINT ck_pedido_item_montos CHECK (precio_unit >= 0 AND subtotal >= 0)
 );
 
+-- Caja: turno de caja con apertura y arqueo de cierre
+CREATE TABLE IF NOT EXISTS orbezo.caja (
+    id             SERIAL PRIMARY KEY,
+    usuario_id     INTEGER NOT NULL,
+    monto_inicial  NUMERIC(10,2) NOT NULL DEFAULT 0,
+    abierta_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    estado         VARCHAR(10) NOT NULL DEFAULT 'abierta',
+    cerrada_at     TIMESTAMPTZ,
+    monto_contado  NUMERIC(10,2),
+    monto_esperado NUMERIC(10,2),
+    diferencia     NUMERIC(10,2),
+    observaciones  VARCHAR(500),
+    cerrada_por    INTEGER,
+    conteo         JSONB,
+    autorizado_por INTEGER,
+    CONSTRAINT fk_caja_usuario FOREIGN KEY (usuario_id) REFERENCES orbezo.usuario(id),
+    CONSTRAINT fk_caja_cerrada_por FOREIGN KEY (cerrada_por) REFERENCES orbezo.usuario(id),
+    CONSTRAINT fk_caja_autorizado_por FOREIGN KEY (autorizado_por) REFERENCES orbezo.usuario(id),
+    CONSTRAINT ck_caja_estado CHECK (estado IN ('abierta','cerrada')),
+    CONSTRAINT ck_caja_montos CHECK (monto_inicial >= 0 AND (monto_contado IS NULL OR monto_contado >= 0) AND (monto_esperado IS NULL OR monto_esperado >= 0)),
+    CONSTRAINT ck_caja_cierre CHECK (estado <> 'cerrada' OR (monto_contado IS NOT NULL AND cerrada_at IS NOT NULL AND cerrada_por IS NOT NULL))
+);
+
+-- Una sola caja abierta por usuario
+CREATE UNIQUE INDEX IF NOT EXISTS uq_caja_abierta_por_usuario
+    ON orbezo.caja (usuario_id) WHERE estado = 'abierta';
+
+-- Movimientos de efectivo del turno (ingresos, egresos y retiros). Inmutables por API.
+CREATE TABLE IF NOT EXISTS orbezo.caja_movimiento (
+    id         SERIAL PRIMARY KEY,
+    caja_id    INTEGER NOT NULL,
+    tipo       VARCHAR(10) NOT NULL,
+    monto      NUMERIC(10,2) NOT NULL,
+    motivo     TEXT NOT NULL,
+    usuario_id INTEGER NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_caja_mov_caja FOREIGN KEY (caja_id) REFERENCES orbezo.caja(id),
+    CONSTRAINT fk_caja_mov_usuario FOREIGN KEY (usuario_id) REFERENCES orbezo.usuario(id),
+    CONSTRAINT ck_caja_mov_tipo CHECK (tipo IN ('ingreso','egreso','retiro')),
+    CONSTRAINT ck_caja_mov_monto CHECK (monto > 0),
+    CONSTRAINT ck_caja_mov_motivo CHECK (char_length(btrim(motivo)) BETWEEN 3 AND 200)
+);
+CREATE INDEX IF NOT EXISTS idx_caja_mov_caja ON orbezo.caja_movimiento (caja_id);
+
 -- Comprobantes
 CREATE TABLE IF NOT EXISTS orbezo.comprobante (
     id                SERIAL PRIMARY KEY,
     pedido_id         INTEGER NOT NULL REFERENCES orbezo.pedido(id),
     usuario_id        INTEGER NOT NULL REFERENCES orbezo.usuario(id),
+    caja_id           INTEGER,
     serie_id          INTEGER NOT NULL REFERENCES orbezo.serie_comprobante(id),
     tipo              VARCHAR(20) NOT NULL,
     serie             VARCHAR(4) NOT NULL,
@@ -174,6 +219,7 @@ CREATE TABLE IF NOT EXISTS orbezo.comprobante (
     total             NUMERIC(10,2) NOT NULL,
     estado_sunat      VARCHAR(20) DEFAULT 'pendiente',
     created_at        TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT fk_comprobante_caja FOREIGN KEY (caja_id) REFERENCES orbezo.caja(id),
     CONSTRAINT ck_comprobante_tipo CHECK (tipo IN ('boleta','factura')),
     CONSTRAINT ck_comprobante_metodo_pago CHECK (metodo_pago IN ('efectivo','tarjeta','yape','plin')),
     CONSTRAINT uq_comprobante_serie_correlativo UNIQUE (serie, correlativo),
